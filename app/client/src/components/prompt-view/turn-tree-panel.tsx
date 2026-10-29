@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bot, ChevronDown, ChevronRight, MessageSquare, Settings2 } from 'lucide-react'
 import type { TurnNode, TurnStatus } from '@/lib/turn-tree'
 import { formatDuration } from '@/components/settings/session-modal'
@@ -170,11 +170,19 @@ export function TurnTreePanel({
     return () => clearInterval(id)
   }, [running])
 
+  // Keep the selected row visible when it's picked from elsewhere (waterfall).
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!selectedId) return
+    const el = panelRef.current?.querySelector(`[data-turn-node="${CSS.escape(selectedId)}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
+
   if (roots.length === 0) {
     return <div className="p-3 text-xs text-muted-foreground">{t('No prompts yet')}</div>
   }
   return (
-    <div className="space-y-0.5 p-1.5">
+    <div ref={panelRef} className="space-y-0.5 p-1.5">
       {roots.map((node) => (
         <Row
           key={node.id}

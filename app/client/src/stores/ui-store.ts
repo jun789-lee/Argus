@@ -295,6 +295,15 @@ interface UIState {
   streamView: 'prompts' | 'raw'
   setStreamView: (view: 'prompts' | 'raw') => void
 
+  // Turn-tree node picked in the prompt view or waterfall. Scoped to a
+  // session so switching sessions falls back to "follow latest".
+  selectedTurn: { sessionId: string; id: string } | null
+  setSelectedTurn: (turn: { sessionId: string; id: string } | null) => void
+
+  // Activity area: prompt/subagent waterfall or the per-agent dot lanes.
+  timelineView: 'waterfall' | 'lanes'
+  setTimelineView: (view: 'waterfall' | 'lanes') => void
+
   // Settings modal
   settingsOpen: boolean
   settingsTab: string
@@ -714,6 +723,16 @@ export const useUIStore = create<UIState>((set, get) => ({
   setStreamView: (view) => {
     localStorage.setItem('agents-observe-stream-view', view)
     set({ streamView: view })
+  },
+
+  selectedTurn: null,
+  setSelectedTurn: (turn) => set({ selectedTurn: turn }),
+
+  timelineView:
+    localStorage.getItem('agents-observe-timeline-view') === 'lanes' ? 'lanes' : 'waterfall',
+  setTimelineView: (view) => {
+    localStorage.setItem('agents-observe-timeline-view', view)
+    set({ timelineView: view })
   },
 
   settingsOpen: false,

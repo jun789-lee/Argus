@@ -47,6 +47,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Rewind, Play } from 'lucide-react'
 import type { EnrichedEvent } from '@/agents/types'
 import { t as tr } from '@/lib/i18n'
+import { WaterfallView } from './waterfall-view'
+import { cn } from '@/lib/utils'
 
 export function ActivityTimeline() {
   const {
@@ -61,7 +63,12 @@ export function ActivityTimeline() {
     frozenEvents,
     enterRewindMode,
     exitRewindMode,
+    timelineView,
+    setTimelineView,
   } = useUIStore()
+  const waterfall = timelineView === 'waterfall'
+  const [fit, setFit] = useState(false)
+  const [compact, setCompact] = useState(false)
 
   const { data: sessions } = useSessions(selectedProjectId)
   const effectiveSessionId = selectedSessionId || sessions?.[0]?.id || null
@@ -163,11 +170,12 @@ export function ActivityTimeline() {
     [timelineHeight, setTimelineHeight],
   )
 
+  // Declared before the early return below — hooks must run on every render.
+  const transitionSpinnerRef = useRef<HTMLDivElement>(null)
+
   if (!effectiveSessionId) return null
 
   const ranges = TIME_RANGE_KEYS
-
-  const transitionSpinnerRef = useRef<HTMLDivElement>(null)
 
   // Shared spinner helper for heavy timeline operations (mode toggle,
   // range changes in rewind). Shows the spinner imperatively so it
@@ -204,7 +212,37 @@ export function ActivityTimeline() {
         <div className="flex items-center justify-between px-3 py-1 border-b border-border/50">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-medium">{tr('Activity')}</span>
-            {rewindMode && (
+            <div className="flex rounded border border-border/70 p-px">
+              {(
+                [
+                  ['waterfall', tr('Waterfall')],
+                  ['lanes', tr('Lanes')],
+                ] as const
+              ).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={cn(
+                    'rounded-sm px-1.5 text-[10px] leading-4 cursor-pointer',
+                    timelineView === view
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => {
+                    if (view === 'waterfall' && rewindMode) exitRewindMode()
+                    setTimelineView(view)
+                  }}
+                  title={
+                    view === 'waterfall'
+                      ? tr('One bar per prompt and subagent')
+                      : tr('One lane of event dots per agent')
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {!waterfall && rewindMode && (
               <span className="text-[9px] px-1.5 py-px rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                 {tr('REWIND')}
               </span>
@@ -230,31 +268,44 @@ export function ActivityTimeline() {
               }}
               className="text-muted-foreground"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              className={
-                rewindMode
-                  ? 'h-5 px-2 text-[10px] mr-1 border-orange-500/70 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10'
-                  : 'h-5 px-2 text-[10px] mr-1 border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
-              }
-              onClick={handleToggleRewind}
-              title={rewindMode ? tr('Resume live view') : tr('Pause and rewind')}
-            >
-              {rewindMode ? (
-                <>
-                  <Rewind className="h-2.5 w-2.5 mr-0.5" /> {tr('Rewind')}
-                </>
-              ) : (
-                <>
-                  <Play className="h-2.5 w-2.5 mr-0.5" /> {tr('Live')}
-                </>
-              )}
-            </Button>
+            {waterfall && (
+              <Button
+                variant={compact ? 'default' : 'ghost'}
+                size="sm"
+                className="h-5 px-2 text-[10px] mr-1"
+                onClick={() => setCompact((v) => !v)}
+                title={tr('Show prompts only, folding subagents into each prompt')}
+              >
+                {tr('Compact')}
+              </Button>
+            )}
+            {!waterfall && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={
+                  rewindMode
+                    ? 'h-5 px-2 text-[10px] mr-1 border-orange-500/70 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10'
+                    : 'h-5 px-2 text-[10px] mr-1 border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+                }
+                onClick={handleToggleRewind}
+                title={rewindMode ? tr('Resume live view') : tr('Pause and rewind')}
+              >
+                {rewindMode ? (
+                  <>
+                    <Rewind className="h-2.5 w-2.5 mr-0.5" /> {tr('Rewind')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-2.5 w-2.5 mr-0.5" /> {tr('Live')}
+                  </>
+                )}
+              </Button>
+            )}
             {ranges.map((r) => (
               <Button
                 key={r}
-                variant={timeRange === r ? 'default' : 'ghost'}
+                variant={timeRange === r && !(waterfall && fit) ? 'default' : 'ghost'}
                 size="sm"
                 className="h-5 px-2 text-[10px]"
                 onClick={() => {
@@ -263,6 +314,7 @@ export function ActivityTimeline() {
                   // sessions. Show the shared transition spinner so the
                   // click feels acknowledged. Live mode is cheap; skip
                   // the paint yield there.
+                  setFit(false)
                   if (rewindMode) {
                     runWithSpinner(() => setTimeRange(r))
                   } else {
@@ -273,16 +325,34 @@ export function ActivityTimeline() {
                 {r}
               </Button>
             ))}
+            {waterfall && (
+              <Button
+                variant={fit ? 'default' : 'ghost'}
+                size="sm"
+                className="h-5 px-2 text-[10px]"
+                onClick={() => setFit(true)}
+                title={tr('Fit the whole session')}
+              >
+                {tr('All')}
+              </Button>
+            )}
           </div>
         </div>
 
         <div
           key={`${rewindMode}-${timeRange}`}
           data-scroll-area
-          className={rewindMode ? 'h-full' : 'overflow-y-auto'}
+          className={rewindMode && !waterfall ? 'h-full' : 'overflow-y-auto'}
           style={{ height: timelineHeight - 32 }}
         >
-          {rewindMode ? (
+          {waterfall ? (
+            <WaterfallView
+              sessionId={effectiveSessionId}
+              rangeMs={rangeMs}
+              fit={fit}
+              compact={compact}
+            />
+          ) : rewindMode ? (
             <TimelineRewind
               events={frozenEvents || enrichedEvents || []}
               agents={frozenAgentsRef.current}

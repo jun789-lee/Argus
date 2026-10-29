@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Bot, MessageSquare, Settings2 } from 'lucide-react'
 import { useEffectiveEvents } from '@/hooks/use-effective-events'
+import { useUIStore } from '@/stores/ui-store'
 import { EventStream } from '@/components/event-stream/event-stream'
 import { buildTurnTree, type TreeEvent, type TurnNode } from '@/lib/turn-tree'
 import { t } from '@/lib/i18n'
@@ -52,11 +53,13 @@ export function PromptView({ sessionId }: { sessionId: string }) {
   const { data: rawEvents } = useEffectiveEvents(sessionId)
   const roots = useMemo(() => buildTurnTree(rawEvents ?? [], { sessionId }), [rawEvents, sessionId])
 
-  // null = follow the latest prompt.
-  const [pickedId, setPickedId] = useState<string | null>(null)
+  // null = follow the latest prompt. Shared with the waterfall via the store.
+  const selectedTurn = useUIStore((s) => s.selectedTurn)
+  const setSelectedTurn = useUIStore((s) => s.setSelectedTurn)
+  const pickedId = selectedTurn?.sessionId === sessionId ? selectedTurn.id : null
   const latest = latestPrompt(roots)
   const selected = (pickedId && findNode(roots, pickedId)) || latest
-  const onSelect = (id: string) => setPickedId(id === latest?.id ? null : id)
+  const onSelect = (id: string) => setSelectedTurn(id === latest?.id ? null : { sessionId, id })
 
   const [tab, setTab] = useState<'conversation' | 'log'>('conversation')
   const openEventInLog = useOpenEventInLog(() => setTab('log'))

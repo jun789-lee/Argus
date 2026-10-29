@@ -376,6 +376,18 @@ export const ko: Record<string, string> = {
   Conversation: '대화',
   Log: '로그',
   'Final answer': '최종 답변',
+
+  // ── Waterfall ───────────────────────────────────────────
+  Waterfall: '워터폴',
+  Lanes: '레인',
+  'One bar per prompt and subagent': '프롬프트·서브에이전트마다 막대 하나',
+  'One lane of event dots per agent': '에이전트마다 이벤트 점 한 줄',
+  Compact: '접어 보기',
+  'Show prompts only, folding subagents into each prompt': '프롬프트만 보고 서브에이전트는 접기',
+  'Fit the whole session': '세션 전체 보기',
+  'No activity in this time range': '이 시간 범위에는 활동이 없습니다',
+  now: '지금',
+  '{n} subagents': '서브에이전트 {n}개',
   'Working…': '작업 중…',
   '{n} failed': '{n}개 실패',
   'Open in log': '로그에서 보기',
