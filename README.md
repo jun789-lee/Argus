@@ -1,6 +1,25 @@
-# Agents Observe
+# Argus
 
-Real-time observability dashboard for Claude Code and Codex agents.
+Real-time observability dashboard for Claude Code and Codex agents — named after the hundred-eyed watchman of Greek myth.
+
+> **Fork notice:** Argus is a fork of [simple10/agents-observe](https://github.com/simple10/agents-observe) by Joe Johnston, used under the MIT License (see [LICENSE](LICENSE)). It is not affiliated with or endorsed by the original project.
+>
+> **What's different in this fork**
+> - Korean UI (한국어 지원) with a language switcher under Settings → Display → Language
+> - Windows fixes for the Docker-free `local` runtime, plus a `start-local.cmd` launcher
+>
+> The plugin install instructions below still point to the upstream project.
+
+## Running locally on Windows (no Docker)
+
+```powershell
+cd app\server; npm install; cd ..\client; npm install; npm run build; cd ..\..
+.\start-local.cmd   # dashboard: http://localhost:4981, log: ~/.agents-observe/logs/server.log
+```
+
+Then add the hooks from `.claude/settings.json` to `~/.claude/settings.json`, replacing `$CLAUDE_PROJECT_DIR` with the path to this repo, and set `AGENTS_OBSERVE_API_BASE_URL=http://127.0.0.1:4981/api` in its `env` block so Claude Code doesn't try to start Docker.
+
+---
 
 Includes powerful filtering, searching, and visualization of multi-agent sessions with full replay and token usage stats.
 

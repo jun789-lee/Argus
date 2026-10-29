@@ -83,9 +83,9 @@ export function Sidebar({ connected }: SidebarProps) {
             }}
           >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
-              O
+              A
             </div>
-            <span className="text-sm font-semibold truncate">Observe</span>
+            <span className="text-sm font-semibold truncate">Argus</span>
           </button>
         )}
         {!sidebarCollapsed && <div className="flex-1" />}

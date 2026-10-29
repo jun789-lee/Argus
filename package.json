@@ -1,10 +1,10 @@
 {
   "name": "agents-observe",
   "version": "0.9.12",
-  "description": "Real-time observability dashboard for Claude Code agents",
+  "description": "Argus: real-time observability dashboard for Claude Code agents (fork of simple10/agents-observe)",
   "license": "MIT",
-  "repository": "https://github.com/simple10/agents-observe",
-  "homepage": "https://github.com/simple10/agents-observe",
+  "repository": "https://github.com/jun789-lee/Argus",
+  "homepage": "https://github.com/jun789-lee/Argus",
   "private": true,
   "scripts": {
     "start": "node start.mjs",
