@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bot, CheckCircle2, Circle, CircleDashed, Info, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, Bot, CheckCircle2, Circle, CircleDashed, Info, Loader2 } from 'lucide-react'
+import { api } from '@/lib/api-client'
 import { buildPlan, type PlanStep, type StepStatus } from '@/lib/plan'
 import type { TurnNode } from '@/lib/turn-tree'
 import { formatDuration } from '@/components/settings/session-modal'
@@ -45,6 +47,12 @@ export function PlanView({
   onSelectNode: (id: string) => void
 }) {
   const replies = useAssistantMessages(sessionId, node, output)
+  // Plans need Claude's to-do tools; newer models lack them unless enabled.
+  const { data: tools } = useQuery({
+    queryKey: ['tool-availability', sessionId],
+    queryFn: () => api.getToolAvailability(sessionId),
+    staleTime: 60_000,
+  })
   const plan = useMemo(() => buildPlan(node, replies ?? []), [node, replies])
 
   const running = node.endedAt === null
@@ -89,6 +97,26 @@ export function PlanView({
           />
         </div>
       </div>
+
+      {tools?.todoTools === false && (
+        <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px]">
+          <div className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {t("Claude's to-do list tools are off in this session")}
+          </div>
+          <div className="mt-1 text-muted-foreground">
+            {t(
+              'Newer models no longer get TaskCreate / TodoWrite by default, so plans are not recorded and steps fall back to replies.',
+            )}{' '}
+            {t(
+              'To turn them on, add this to the env block of ~/.claude/settings.json and start a new session:',
+            )}
+          </div>
+          <code className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[11px]">
+            "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
+          </code>
+        </div>
+      )}
 
       {running && (
         <div className="mb-3">

@@ -424,6 +424,12 @@ export const ko: Record<string, string> = {
   'No recent activity': '최근 활동 없음',
   'Estimated from past runs': '지난 실행 기록으로 추정',
   'From the task list': '할 일 목록 기준',
+  "Claude's to-do list tools are off in this session":
+    '이 세션에서는 Claude의 할 일 목록 도구가 꺼져 있어요',
+  'Newer models no longer get TaskCreate / TodoWrite by default, so plans are not recorded and steps fall back to replies.':
+    '새 모델에는 TaskCreate / TodoWrite가 기본으로 주어지지 않아서, 계획이 기록되지 않고 답변 단위 단계로 대신 보여줘요.',
+  'To turn them on, add this to the env block of ~/.claude/settings.json and start a new session:':
+    '켜려면 ~/.claude/settings.json의 env에 아래 줄을 추가하고 새 세션을 여세요:',
   'This subagent finished without a recorded result.':
     '이 서브에이전트는 기록된 결과 없이 끝났어요.',
   'Still working — the result appears here when the subagent finishes.':

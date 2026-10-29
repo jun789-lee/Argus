@@ -6,6 +6,7 @@ import { resolveTranscriptPath } from '../services/transcript-path'
 import { parseSessionTranscripts } from '../transcript-parser'
 import { readCacheStatus } from '../services/cache-status'
 import { readAssistantMessages } from '../services/assistant-messages'
+import { readToolAvailability } from '../services/tool-availability'
 
 type Env = { Variables: { store: EventStore } }
 
@@ -25,6 +26,30 @@ router.get('/sessions/:sessionId/cache-status', async (c) => {
   const resolved = resolveTranscriptPath(hostPath, config.transcriptStats.bases)
   try {
     return c.json(await readCacheStatus(resolved, config.transcriptStats.maxFileBytes), 200)
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return c.json({ error: 'file_not_found', message: 'Transcript file not found.' }, 404)
+    }
+    if (err?.code === 'EACCES') {
+      return c.json({ error: 'file_unreadable', message: err.message }, 403)
+    }
+    throw err
+  }
+})
+
+// Whether Claude had its to-do list tools (TaskCreate / TodoWrite) in this
+// session — the plan tab warns when they're missing.
+router.get('/sessions/:sessionId/tool-availability', async (c) => {
+  if (!config.transcriptStats.enabled) {
+    return c.json({ error: 'disabled', message: 'Transcript parsing is disabled.' }, 404)
+  }
+  const hostPath = await c.get('store').getSessionTranscriptPath(c.req.param('sessionId'))
+  if (!hostPath) {
+    return c.json({ error: 'no_transcript', message: 'No transcript path found for session.' }, 404)
+  }
+  const resolved = resolveTranscriptPath(hostPath, config.transcriptStats.bases)
+  try {
+    return c.json(await readToolAvailability(resolved, config.transcriptStats.maxFileBytes), 200)
   } catch (err: any) {
     if (err?.code === 'ENOENT') {
       return c.json({ error: 'file_not_found', message: 'Transcript file not found.' }, 404)

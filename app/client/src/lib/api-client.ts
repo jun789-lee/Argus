@@ -266,6 +266,17 @@ export const api = {
     return { ok: true, status: 200, data: body as TranscriptStatsData }
   },
 
+  /** Whether Claude had its to-do list tools in this session (null: unknown). */
+  getToolAvailability: async (
+    sessionId: string,
+  ): Promise<{ todoTools: boolean | null; found: string[] } | null> => {
+    const res = await fetch(
+      `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/tool-availability`,
+    )
+    if (!res.ok) return null
+    return res.json().catch(() => null)
+  },
+
   /** Durations of finished subagents by type, for ETA estimates. */
   getSubagentRunStats: () =>
     fetchJson<{
