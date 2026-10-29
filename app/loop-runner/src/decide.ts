@@ -81,6 +81,9 @@ export interface LoopState {
   debug: { candidate: string; attempts: number; error: string } | null
   integrityViolations: number
   costUsd: number
+  /** Added by budget-gate "extend" decisions. */
+  extraIterations?: number
+  extraWallClockMs?: number
 }
 
 export function nextOperator(state: LoopState): 'improve' | 'debug' {
@@ -89,8 +92,11 @@ export function nextOperator(state: LoopState): 'improve' | 'debug' {
 
 /** Why the loop must stop before starting another iteration, or null to keep going. */
 export function stopReason(state: LoopState, spec: Spec, now: number): TerminalReason | null {
-  if (state.iterationsDone >= spec.budget.maxIterations) return 'max_iterations'
-  if (spec.budget.wallClockMs !== null && now - state.startedAt >= spec.budget.wallClockMs) {
+  if (state.iterationsDone >= spec.budget.maxIterations + (state.extraIterations ?? 0)) return 'max_iterations'
+  if (
+    spec.budget.wallClockMs !== null &&
+    now - state.startedAt >= spec.budget.wallClockMs + (state.extraWallClockMs ?? 0)
+  ) {
     return 'budget_time'
   }
   if (spec.budget.usd !== null && state.costUsd >= spec.budget.usd) return 'budget_usd'

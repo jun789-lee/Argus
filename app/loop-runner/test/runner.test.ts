@@ -12,6 +12,14 @@ const quiet = () => {}
 const run = (loopHome: string, extra: Partial<Parameters<typeof runLoop>[0]> = {}) =>
   runLoop({ loopHome, yes: true, fakeWorker: FAKE_WORKER, log: quiet, ...extra })
 
+async function waitFor(cond: () => boolean, timeoutMs = 60_000) {
+  const t0 = Date.now()
+  while (!cond()) {
+    if (Date.now() - t0 > timeoutMs) throw new Error('timed out waiting')
+    await new Promise((r) => setTimeout(r, 50))
+  }
+}
+
 function verdicts(runDir: string) {
   return journal.iterations(journal.read(join(runDir, 'journal.jsonl'))).map((i) => i.verdict)
 }
@@ -125,17 +133,100 @@ describe('runLoop', { timeout: 120_000 }, () => {
   it('waits after calibration for start approval, then starts without recalibrating', async () => {
     const sb = sandbox({ maxIterations: 1 })
     sb.scenario([{ set: 50 }])
-    // No terminal and no --yes: the run stops at the start gate (vitest's stdin is not a TTY).
-    const waiting = await runLoop({ loopHome: sb.loopHome, fakeWorker: FAKE_WORKER, log: quiet })
+    // No terminal, no --yes, told not to wait: the run stops at the start gate.
+    const waiting = await runLoop({ loopHome: sb.loopHome, fakeWorker: FAKE_WORKER, log: quiet, gateWait: 'exit' })
     expect(waiting.reason).toBe('awaiting_start')
     const evs = () => journal.read(join(waiting.runDir, 'journal.jsonl'))
     expect(evs().some((e) => e.type === 'gate')).toBe(false)
+    expect(evs().find((e) => e.type === 'gate_requested')).toMatchObject({ kind: 'start', id: 'g1' })
 
-    const sum = await runLoop({ loopHome: sb.loopHome, fakeWorker: FAKE_WORKER, log: quiet, approve: true, resumeRunId: waiting.runId })
-    expect(sum.reason).toBe('max_iterations')
+    const sum = await runLoop({ loopHome: sb.loopHome, fakeWorker: FAKE_WORKER, log: quiet, approve: true, resumeRunId: waiting.runId, gateWait: 'exit' })
+    // One iteration, then the budget gate: with nobody to answer it the run exits again.
+    expect(sum.reason).toBe('awaiting_gate')
+    expect(sum.iterations).toBe(1)
     expect(sum.best.value).toBe(50)
     expect(evs().filter((e) => e.type === 'calibration')).toHaveLength(1)
-    expect(evs().find((e) => e.type === 'gate')).toMatchObject({ kind: 'start', decision: 'continue', by: 'terminal' })
+    expect(evs().find((e) => e.type === 'gate')).toMatchObject({ id: 'g1', kind: 'start', decision: 'start', by: 'terminal' })
+  })
+
+  it('starts when the dashboard approves the start gate, and records the run phases', async () => {
+    const sb = sandbox({ maxIterations: 1 })
+    sb.scenario([{ set: 50 }])
+    let runDir = ''
+    const done = runLoop({
+      loopHome: sb.loopHome,
+      fakeWorker: FAKE_WORKER,
+      pollMs: 50,
+      log: (l) => {
+        const m = /^run (\S+):/.exec(l)
+        if (m) runDir = join(sb.loopHome, 'runs', m[1])
+      },
+    })
+    const requests = () => journal.read(join(runDir, 'journal.jsonl')).filter((e) => e.type === 'gate_requested')
+    await waitFor(() => !!runDir && requests().length === 1)
+    journal.appendControl(runDir, { type: 'gate_decision', gateId: 'g1', decision: 'start', by: 'ui' })
+    // After the one budgeted iteration the run asks whether to extend: finish it.
+    await waitFor(() => requests().length === 2)
+    journal.appendControl(runDir, { type: 'gate_decision', gateId: 'g2', decision: 'finish', by: 'ui' })
+    const sum = await done
+    expect(sum.reason).toBe('max_iterations')
+    const evs = journal.read(join(runDir, 'journal.jsonl'))
+    expect(evs.find((e) => e.type === 'gate')).toMatchObject({ id: 'g1', decision: 'start', by: 'ui' })
+    const phases = evs.filter((e): e is journal.StateEvent => e.type === 'state').map((e) => e.state)
+    expect(phases).toEqual([
+      'preparing', 'calibrating', 'awaiting_start',
+      'working', 'checking', 'judging', 'checking', 'judging',
+      'alert', 'finishing', 'finished',
+    ])
+    expect(evs.find((e) => e.type === 'iteration_started')).toMatchObject({ n: 1, operator: 'improve' })
+    expect(evs.filter((e) => e.type === 'gate_requested').at(-1)).toMatchObject({ kind: 'review' })
+  })
+
+  it('stops mid-iteration when the dashboard asks, killing the worker', async () => {
+    const sb = sandbox({ maxIterations: 3, workerTimeout: '60s' })
+    sb.scenario([{ sleep: 30_000, set: 1 }])
+    let runDir = ''
+    const started = Date.now()
+    const done = run(sb.loopHome, {
+      pollMs: 50,
+      log: (l) => {
+        const m = /^run (\S+):/.exec(l)
+        if (m) runDir = join(sb.loopHome, 'runs', m[1])
+      },
+    })
+    await waitFor(() => !!runDir && journal.read(join(runDir, 'journal.jsonl')).some((e) => e.type === 'iteration_started'))
+    journal.appendControl(runDir, { type: 'stop', by: 'ui' })
+    const sum = await done
+    expect(sum.reason).toBe('user_stopped')
+    expect(Date.now() - started).toBeLessThan(25_000) // did not wait out the 30 s worker
+    expect(verdicts(runDir)).toEqual([])
+    expect(sum.best.value).toBe(100)
+  })
+
+  it('extends the budget when the dashboard says so, then finishes', async () => {
+    const sb = sandbox({ maxIterations: 1 })
+    sb.scenario([{ set: 90 }, { set: 80 }])
+    let runDir = ''
+    const done = runLoop({
+      loopHome: sb.loopHome,
+      fakeWorker: FAKE_WORKER,
+      approve: true,
+      pollMs: 50,
+      log: (l) => {
+        const m = /^run (\S+):/.exec(l)
+        if (m) runDir = join(sb.loopHome, 'runs', m[1])
+      },
+    })
+    const budgetGates = () =>
+      journal.read(join(runDir, 'journal.jsonl')).filter((e): e is journal.GateRequestedEvent => e.type === 'gate_requested' && e.kind === 'budget')
+    await waitFor(() => !!runDir && budgetGates().length === 1)
+    journal.appendControl(runDir, { type: 'gate_decision', gateId: budgetGates()[0].id, decision: 'extend' })
+    await waitFor(() => budgetGates().length === 2)
+    journal.appendControl(runDir, { type: 'gate_decision', gateId: budgetGates()[1].id, decision: 'finish' })
+    const sum = await done
+    expect(sum.reason).toBe('max_iterations')
+    expect(sum.iterations).toBe(2)
+    expect(sum.best.value).toBe(80)
   })
 
   it('resumes a run whose grader broke mid-way by re-scoring the committed candidate', async () => {

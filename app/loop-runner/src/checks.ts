@@ -39,9 +39,13 @@ function isCheckOutput(v: unknown): v is CheckOutput {
   return !!v && typeof v === 'object' && typeof (v as CheckOutput).ok === 'boolean'
 }
 
-export async function runCheck(v: Verifier, ctx: CheckContext): Promise<CheckResult & { raw: string }> {
+export async function runCheck(
+  v: Verifier,
+  ctx: CheckContext,
+  signal?: AbortSignal,
+): Promise<CheckResult & { raw: string }> {
   const command = substitute(v.run, ctx)
-  const res = await run(command, [], { shell: true, timeoutMs: v.timeoutMs, cwd: ctx.loopHome, env: checkEnv() })
+  const res = await run(command, [], { shell: true, timeoutMs: v.timeoutMs, cwd: ctx.loopHome, env: checkEnv(), signal })
   const raw = `$ ${command}\n--- stdout\n${res.stdout}\n--- stderr\n${res.stderr}`
   const base = { id: v.id, durationMs: res.durationMs, timedOut: res.timedOut, raw }
   if (res.timedOut) {

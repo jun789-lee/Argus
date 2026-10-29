@@ -18,6 +18,8 @@ export interface ExecOptions {
   env?: NodeJS.ProcessEnv
   /** Run `command` through the shell (for spec-provided command strings). */
   shell?: boolean
+  /** Aborting kills the process tree (a stop request from the dashboard). */
+  signal?: AbortSignal
 }
 
 function killTree(pid: number) {
@@ -51,11 +53,17 @@ export function run(command: string, args: string[], opts: ExecOptions): Promise
       timedOut = true
       if (child.pid) killTree(child.pid)
     }, opts.timeoutMs)
+    const onAbort = () => {
+      if (child.pid) killTree(child.pid)
+    }
+    if (opts.signal?.aborted) onAbort()
+    else opts.signal?.addEventListener('abort', onAbort, { once: true })
     child.on('error', (err) => {
       stderr += String(err)
     })
     child.on('close', (code) => {
       clearTimeout(timer)
+      opts.signal?.removeEventListener('abort', onAbort)
       resolve({ exitCode: code, stdout, stderr, timedOut, durationMs: Date.now() - started })
     })
     if (opts.input !== undefined) child.stdin?.end(opts.input)

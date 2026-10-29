@@ -122,7 +122,14 @@ function parseWorkerOutput(stdout: string): { report: WorkerReport | null; costU
 export async function runWorker(
   spec: Spec,
   prompt: string,
-  opts: { cwd: string; sessionId: string; operator: string; iteration: number; fakeWorker?: string },
+  opts: {
+    cwd: string
+    sessionId: string
+    operator: string
+    iteration: number
+    fakeWorker?: string
+    signal?: AbortSignal
+  },
 ): Promise<WorkerResult> {
   let res
   if (opts.fakeWorker) {
@@ -131,6 +138,7 @@ export async function runWorker(
       cwd: opts.cwd,
       shell: true,
       timeoutMs: spec.worker.timeoutMs,
+      signal: opts.signal,
       input: prompt,
       env: {
         ...process.env,
@@ -152,23 +160,36 @@ export async function runWorker(
     }
     if (spec.worker.allowedTools.length) args.push('--allowedTools', ...spec.worker.allowedTools)
     if (spec.worker.disallowedTools.length) args.push('--disallowedTools', ...spec.worker.disallowedTools)
-    res = await run(claudeBinary(), args, { cwd: opts.cwd, timeoutMs: spec.worker.timeoutMs, input: prompt })
+    res = await run(claudeBinary(), args, {
+      cwd: opts.cwd,
+      timeoutMs: spec.worker.timeoutMs,
+      input: prompt,
+      signal: opts.signal,
+    })
   }
   const raw = `--- stdout\n${res.stdout}\n--- stderr\n${res.stderr}`
   if (res.timedOut) return { report: null, costUsd: 0, exit: 'timeout', timedOut: true, raw }
   return { ...parseWorkerOutput(res.stdout), timedOut: false, raw }
 }
 
-/** Best effort: name the iteration's session in Argus so the sidebar groups loop sessions. */
-export async function labelSession(sessionId: string, slug: string) {
+/** Best effort: name the iteration's session in Argus and tag its metadata with the loop it
+ *  belongs to, so the dashboard can classify it as a loop session and link it to the run. */
+export async function labelSession(
+  sessionId: string,
+  slug: string,
+  loop: { name: string; runId: string; n: number; operator: string },
+) {
   const base = process.env.AGENTS_OBSERVE_API_BASE_URL ?? 'http://127.0.0.1:4981/api'
-  try {
-    await fetch(`${base}/sessions/${sessionId}`, {
+  const send = (path: string, body: object) =>
+    fetch(`${base}/sessions/${encodeURIComponent(sessionId)}${path}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(3000),
     })
+  try {
+    await send('', { slug })
+    await send('/metadata', { loop })
   } catch {
     /* Argus not running: the journal still has everything. */
   }

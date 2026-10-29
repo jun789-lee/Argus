@@ -25,13 +25,18 @@ export interface RunOptions {
   fakeWorker?: string
   /** Resume this run instead of starting a new one. */
   resumeRunId?: string
+  /** At a human gate with no terminal: wait for a dashboard decision (default), or exit so
+   *  the run can be resumed later. */
+  gateWait?: 'wait' | 'exit'
+  /** How often to look for dashboard decisions and stop requests. */
+  pollMs?: number
   log?: (line: string) => void
 }
 
 export interface RunSummary {
   runId: string
   runDir: string
-  reason: TerminalReason | 'awaiting_start'
+  reason: TerminalReason | 'awaiting_start' | 'awaiting_gate'
   baseline: Scored
   best: Scored
   branch: string
@@ -89,15 +94,33 @@ function acquireLock(loopHome: string): () => void {
   return () => rmSync(lock, { force: true })
 }
 
-async function ask(question: string): Promise<boolean> {
-  if (!process.stdin.isTTY) return false
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  try {
-    const answer = await rl.question(`${question} [y/N] `)
-    return /^y(es)?$/i.test(answer.trim())
-  } finally {
-    rl.close()
-  }
+/** A stop request arrived (dashboard or control file) while work was in flight. */
+class StopRequested extends Error {}
+
+/** Terminal answers for each gate kind: key -> decision. */
+const GATE_CHOICES: Record<journal.GateKind, Record<string, string>> = {
+  start: { y: 'start', n: 'cancel' },
+  alert: { c: 'continue', r: 'reject', s: 'stop' },
+  budget: { e: 'extend', f: 'finish' },
+  review: { a: 'ack' },
+}
+
+/** Ask on the terminal; resolves with a decision, or never if there is no terminal. */
+function askTerminal(kind: journal.GateKind, question: string, signal: AbortSignal): Promise<string> {
+  if (!process.stdin.isTTY) return new Promise(() => {})
+  const choices = GATE_CHOICES[kind]
+  const prompt = `${question} [${Object.entries(choices).map(([k, d]) => `${k}=${d}`).join(', ')}] `
+  return (async () => {
+    for (;;) {
+      const rl = createInterface({ input: process.stdin, output: process.stdout })
+      try {
+        const answer = (await rl.question(prompt, { signal })).trim().toLowerCase()
+        if (choices[answer]) return choices[answer]
+      } finally {
+        rl.close()
+      }
+    }
+  })()
 }
 
 export async function runLoop(opts: RunOptions): Promise<RunSummary> {
@@ -109,9 +132,20 @@ export async function runLoop(opts: RunOptions): Promise<RunSummary> {
 
   mkdirSync(join(loopHome, 'runs'), { recursive: true })
   const release = acquireLock(loopHome)
+  const stopper = new AbortController()
+  let stopTimer: ReturnType<typeof setInterval> | undefined
   try {
-    return await runWithLock(spec, text, opts, log)
+    return await runWithLock(spec, text, opts, log, stopper, (runDir) => {
+      // Watch the run's control file for a stop request from the dashboard.
+      stopTimer = setInterval(() => {
+        if (!stopper.signal.aborted && journal.readControl(runDir).some((c) => c.type === 'stop')) {
+          log('stop requested')
+          stopper.abort()
+        }
+      }, opts.pollMs ?? 2000)
+    })
   } finally {
+    if (stopTimer) clearInterval(stopTimer)
     release()
   }
 }
@@ -121,6 +155,8 @@ async function runWithLock(
   specText: string,
   opts: RunOptions,
   log: (l: string) => void,
+  stopper: AbortController,
+  watchControl: (runDir: string) => void,
 ): Promise<RunSummary> {
   const loopHome = opts.loopHome
   const runId = opts.resumeRunId ?? newRunId()
@@ -129,6 +165,75 @@ async function runWithLock(
   const journalPath = join(runDir, 'journal.jsonl')
   mkdirSync(logs, { recursive: true })
   const saveLog = (name: string, content: string) => writeFileSync(join(logs, name), content)
+  const pollMs = opts.pollMs ?? 2000
+  const stopSignal = stopper.signal
+  const setState = (state: journal.LoopPhase, n?: number) =>
+    journal.append(journalPath, n === undefined ? { type: 'state', state } : { type: 'state', state, n })
+  const checkStop = () => {
+    if (stopSignal.aborted) throw new StopRequested()
+  }
+  watchControl(runDir)
+
+  /**
+   * Ask a human. The request goes in the journal (the dashboard shows it as a card); the
+   * answer comes from the dashboard (control file) or the terminal, whichever is first.
+   * `auto` decides without asking. Returns null when told not to wait and nobody has
+   * answered yet, so the run can exit and be resumed.
+   */
+  async function awaitGate(
+    kind: journal.GateKind,
+    request: journal.GateRequestedEvent['request'],
+    auto: string | null,
+    question: string,
+  ): Promise<string | null> {
+    const evs = journal.read(journalPath)
+    const decidedIds = new Set(evs.filter((e): e is journal.GateEvent => e.type === 'gate' && !!e.id).map((e) => e.id))
+    let req = evs
+      .filter((e): e is journal.GateRequestedEvent => e.type === 'gate_requested' && e.kind === kind && !decidedIds.has(e.id))
+      .at(-1)
+    if (!req) {
+      req = { type: 'gate_requested', id: `g${evs.filter((e) => e.type === 'gate_requested').length + 1}`, kind, request }
+      journal.append(journalPath, req)
+    }
+    const id = req.id
+    const record = (decision: string, by: journal.GateEvent['by']) => {
+      journal.append(journalPath, { type: 'gate', id, kind, reason: request.reason, decision, by })
+      return decision
+    }
+    // `--approve` is a person approving from the command line, not an automatic decision.
+    if (auto) return record(auto, kind === 'start' && opts.approve ? 'terminal' : 'auto')
+    const fromControl = () =>
+      journal.readControl(runDir).filter((c) => c.type === 'gate_decision' && c.gateId === id).at(-1) as
+        | { decision: string }
+        | undefined
+    const already = fromControl()
+    if (already) return record(already.decision, 'ui')
+    if (opts.gateWait === 'exit' && !process.stdin.isTTY) return null
+
+    log(`waiting for a decision on ${kind} gate ${id} (dashboard or terminal)`)
+    const cancel = new AbortController()
+    let timer: ReturnType<typeof setInterval> | undefined
+    const fromDashboard = new Promise<{ decision: string; by: journal.GateEvent['by'] }>((resolve) => {
+      timer = setInterval(() => {
+        const c = fromControl()
+        if (c) resolve({ decision: c.decision, by: 'ui' })
+        else if (stopSignal.aborted) resolve({ decision: '__stop', by: 'ui' })
+      }, pollMs)
+    })
+    const fromTerminal = askTerminal(kind, question, cancel.signal).then(
+      (decision) => ({ decision, by: 'terminal' as const }),
+      // Cancelled because the dashboard answered first: never settle.
+      () => new Promise<never>(() => {}),
+    )
+    try {
+      const answer = await Promise.race([fromDashboard, fromTerminal])
+      if (answer.decision === '__stop') throw new StopRequested()
+      return record(answer.decision, answer.by)
+    } finally {
+      clearInterval(timer)
+      cancel.abort()
+    }
+  }
 
   let events = journal.read(journalPath)
   let started: (journal.RunStartedEvent & { t?: string }) | undefined = events.find(
@@ -154,11 +259,12 @@ async function runWithLock(
       graderHashes: graderHashes(loopHome),
     }
     journal.append(journalPath, started)
+    setState('preparing')
     log(`run ${runId}: worktree ${worktree} (branch ${branch})`)
   } else {
     log(`resuming run ${runId}`)
   }
-  const { worktree, branch } = started
+  const { worktree, branch, baseCommit } = started
   const runSpec = started.spec // a resumed run keeps the spec it started with
   const ctx = (iteration: number, dir = worktree): CheckContext => ({ worktree: dir, loopHome, runDir, iteration })
   const gates = runSpec.verifiers.filter((v) => v.role === 'gate' && v.when === 'every')
@@ -167,22 +273,36 @@ async function runWithLock(
 
   // ── Calibration (once per run): baseline, repeat scoring, known-bad ──
   let calibration = events.find((e): e is journal.CalibrationEvent => e.type === 'calibration')
-  if (!calibration) {
+  try {
+    if (!calibration) calibration = await calibrate()
+  } catch (err) {
+    if (err instanceof StopRequested) return finish('user_stopped')
+    throw err
+  }
+  events = journal.read(journalPath)
+
+  async function calibrate(): Promise<journal.CalibrationEvent> {
+    setState('calibrating')
     log('calibrating the graders on the baseline...')
     const calWarnings: string[] = []
     const results: CheckResult[] = []
+    const check = async (v: (typeof gates)[number], dir = worktree) => {
+      const r = await runCheck(v, ctx(0, dir), stopSignal)
+      checkStop()
+      return r
+    }
     for (const g of gates) {
-      const r = await runCheck(g, ctx(0))
+      const r = await check(g)
       saveLog(`calibration-${g.id}.txt`, r.raw)
       results.push(forJournal(r, false))
       if (!r.ok) throw new Error(`The baseline fails check "${g.id}": ${r.infraError ?? r.message}`)
     }
     const scores: Scored[] = []
     for (let i = 0; i < Math.max(1, runSpec.calibration.repeats); i++) {
-      const r = await runCheck(scoreCheck, ctx(0))
+      const r = await check(scoreCheck)
       saveLog(`calibration-score-${i + 1}.txt`, r.raw)
       results.push(forJournal(r, false))
-      const s = r.ok ? scoredFrom(r, runSpec.acceptance.metric, 0, started.baseCommit) : null
+      const s = r.ok ? scoredFrom(r, runSpec.acceptance.metric, 0, baseCommit) : null
       if (!s) throw new Error(`The baseline score check failed: ${r.infraError ?? r.message ?? 'no metric'}`)
       scores.push(s)
     }
@@ -191,7 +311,7 @@ async function runWithLock(
       calWarnings.push(`The same baseline scored differently across repeats (${values.join(', ')}) though this preset expects a deterministic score.`)
     }
     for (const v of onAccept) {
-      const r = await runCheck(v, ctx(0))
+      const r = await check(v)
       saveLog(`calibration-${v.id}.txt`, r.raw)
       results.push(forJournal(r, v.access === 'sealed'))
       if (v.role === 'gate' && !r.ok) {
@@ -201,7 +321,7 @@ async function runWithLock(
     let knownBad: CheckResult | null = null
     if (runSpec.calibration.knownBad) {
       const probe = gates[0] ?? scoreCheck
-      const r = await runCheck(probe, ctx(0, runSpec.calibration.knownBad))
+      const r = await check(probe, runSpec.calibration.knownBad)
       saveLog('calibration-known-bad.txt', r.raw)
       knownBad = forJournal(r, false)
       const badScore = r.ok ? scoredFrom(r, runSpec.acceptance.metric, 0, '') : null
@@ -214,17 +334,18 @@ async function runWithLock(
         )
       }
     }
-    calibration = { type: 'calibration', baseline: scores[0], checks: results, knownBad, warnings: calWarnings }
-    journal.append(journalPath, calibration)
+    const cal: journal.CalibrationEvent = { type: 'calibration', baseline: scores[0], checks: results, knownBad, warnings: calWarnings }
+    journal.append(journalPath, cal)
     for (const w of calWarnings) log(`warning: ${w}`)
     log(`baseline ${runSpec.acceptance.metric} = ${scores[0].value}`)
-
-    events = journal.read(journalPath)
+    return cal
   }
 
-  // Start gate: a human approves the graders before any optimization. Without a terminal
-  // (and without --yes) the run waits here: calibration is kept, and `resume --yes` starts it.
+  // Start gate: a human approves the graders before any optimization. Without a terminal the
+  // run waits for the dashboard (or, with gateWait 'exit', stops so `resume --approve` can
+  // start it later); calibration is kept either way.
   const startGate = events.find((e): e is journal.GateEvent => e.type === 'gate' && e.kind === 'start')
+  const startApproved = (d: string) => d === 'start' || d === 'continue' // 'continue': gates before ids existed
   if (runSpec.humanGates.start === 'required' && !startGate) {
     const values = calibration.checks.filter((c) => c.id === scoreCheck.id).map((c) => c.metrics[runSpec.acceptance.metric])
     const kb = calibration.knownBad
@@ -233,22 +354,26 @@ async function runWithLock(
       `known-bad: ${kb ? (kb.ok ? 'scored worse' : `rejected (${kb.message ?? ''})`) : 'not configured'}` +
       (calibration.warnings.length ? `; warnings: ${calibration.warnings.join(' ')}` : '') + '.'
     log(summary)
-    const preApproved = opts.yes || opts.approve
-    if (!preApproved && !process.stdin.isTTY) {
-      log(`waiting for start approval: argus-loop resume ${runSpec.name} ${runId} --approve`)
+    setState('awaiting_start')
+    let decision: string | null
+    try {
+      decision = await awaitGate(
+        'start',
+        { reason: summary, baseline: calibration.baseline.value, scores: values, knownBad: kb?.message ?? null, warnings: calibration.warnings },
+        opts.yes || opts.approve ? 'start' : null,
+        'Start the loop with these graders?',
+      )
+    } catch (err) {
+      if (err instanceof StopRequested) return finish('user_stopped')
+      throw err
+    }
+    if (decision === null) {
+      log(`waiting for start approval: approve it in the Argus dashboard, or run argus-loop resume ${runSpec.name} ${runId} --approve`)
       return { runId, runDir, reason: 'awaiting_start', baseline: calibration.baseline, best: calibration.baseline, branch, worktree, iterations: 0, costUsd: 0 }
     }
-    const go = preApproved || (await ask('Start the loop with these graders?'))
-    journal.append(journalPath, {
-      type: 'gate',
-      kind: 'start',
-      reason: summary,
-      decision: go ? 'continue' : 'stop',
-      by: opts.yes && !opts.approve ? 'auto' : 'terminal',
-    })
-    if (!go) return finish('user_stopped')
+    if (!startApproved(decision)) return finish('user_stopped')
     events = journal.read(journalPath)
-  } else if (startGate?.decision === 'stop') {
+  } else if (startGate && !startApproved(startGate.decision)) {
     throw new Error(`Run ${runId} was not approved to start.`)
   }
 
@@ -276,12 +401,71 @@ async function runWithLock(
       error: it.error ?? undefined,
     })
   }
+  for (const ext of events.filter((e): e is journal.BudgetExtendedEvent => e.type === 'budget_extended')) {
+    state.extraIterations = (state.extraIterations ?? 0) + ext.iterations
+    state.extraWallClockMs = (state.extraWallClockMs ?? 0) + (ext.wallClockMs ?? 0)
+  }
   await resetTo(worktree, state.head)
+
+  // A resumed run may still owe an answer to an alert raised before it stopped.
+  const answered = new Set(events.filter((e): e is journal.GateEvent => e.type === 'gate' && !!e.id).map((e) => e.id))
+  const openAlert = events
+    .filter((e): e is journal.GateRequestedEvent => e.type === 'gate_requested' && e.kind === 'alert' && !answered.has(e.id))
+    .at(-1)
+  if (openAlert) {
+    let decision: string | null
+    try {
+      decision = await awaitGate('alert', openAlert.request, opts.yes ? 'stop' : null, `ALERT: ${openAlert.request.reason} Continue the loop?`)
+    } catch (err) {
+      if (err instanceof StopRequested) return finish('user_stopped')
+      throw err
+    }
+    if (decision === null) {
+      return { runId, runDir, reason: 'awaiting_gate', baseline, best: state.best, branch, worktree, iterations: state.iterationsDone, costUsd: state.costUsd }
+    }
+    if (decision === 'stop') return finish('escalated')
+  }
 
   // ── The loop ───────────────────────────────────────────────────────────
   for (;;) {
+    if (stopSignal.aborted) return finish('user_stopped')
     const reason = stopReason(state, runSpec, Date.now())
-    if (reason) return finish(reason)
+    if (reason) {
+      // Out of budget: ask whether to extend (unless told to run unattended).
+      const budgetReason = reason === 'max_iterations' || reason === 'budget_time'
+      if (budgetReason && runSpec.humanGates.onBudgetEnd === 'ask' && !opts.yes) {
+        setState('alert')
+        let decision: string | null
+        try {
+          decision = await awaitGate(
+            'budget',
+            {
+              reason: `Budget reached (${reason}) after ${state.iterationsDone} iterations; best ${runSpec.acceptance.metric} ${state.best.value} (baseline ${baseline.value}).`,
+              stop: reason,
+              iterationsDone: state.iterationsDone,
+              extendBy: { iterations: runSpec.budget.maxIterations, wallClockMs: runSpec.budget.wallClockMs },
+            },
+            null,
+            'Extend the budget by another round?',
+          )
+        } catch (err) {
+          if (err instanceof StopRequested) return finish('user_stopped')
+          throw err
+        }
+        if (decision === null) {
+          log(`waiting for a budget decision: answer in the Argus dashboard, or resume ${runSpec.name} ${runId}`)
+          return { runId, runDir, reason: 'awaiting_gate', baseline, best: state.best, branch, worktree, iterations: state.iterationsDone, costUsd: state.costUsd }
+        }
+        if (decision === 'extend') {
+          journal.append(journalPath, { type: 'budget_extended', iterations: runSpec.budget.maxIterations, wallClockMs: runSpec.budget.wallClockMs })
+          state.extraIterations = (state.extraIterations ?? 0) + runSpec.budget.maxIterations
+          state.extraWallClockMs = (state.extraWallClockMs ?? 0) + (runSpec.budget.wallClockMs ?? 0)
+          log(`budget extended by ${runSpec.budget.maxIterations} iterations`)
+          continue
+        }
+      }
+      return finish(reason)
+    }
 
     const n = state.iterationsDone + 1
     const allEvents = journal.read(journalPath)
@@ -299,11 +483,16 @@ async function runWithLock(
       sessionId = pending.sessionId
       w = { report: pending.report, exit: pending.workerExit, costUsd: pending.costUsd, timedOut: false }
       t0 = Date.now() - pending.workerMs
+      if (!allEvents.some((e) => e.type === 'iteration_started' && e.n === n)) {
+        journal.append(journalPath, { type: 'iteration_started', n, operator, sessionId, startCommit })
+      }
     } else {
       startCommit = await head(worktree)
       sessionId = opts.fakeWorker ? null : randomUUID()
       const prompt = buildPrompt(runSpec, state, baseline.value, journal.iterations(allEvents), operator)
       saveLog(`iter-${n}-prompt.md`, prompt)
+      journal.append(journalPath, { type: 'iteration_started', n, operator, sessionId, startCommit })
+      setState('working', n)
       log(`#${n} ${operator}: worker started${sessionId ? ` (session ${sessionId})` : ''}`)
       t0 = Date.now()
       const res = await runWorker(runSpec, prompt, {
@@ -312,9 +501,16 @@ async function runWithLock(
         operator,
         iteration: n,
         fakeWorker: opts.fakeWorker,
+        signal: stopSignal,
       })
       saveLog(`iter-${n}-worker.txt`, res.raw)
-      if (sessionId) void labelSession(sessionId, `loop:${runSpec.name} #${runId}-${n}`)
+      if (sessionId) {
+        void labelSession(sessionId, `loop:${runSpec.name} #${runId}-${n}`, { name: runSpec.name, runId, n, operator })
+      }
+      if (stopSignal.aborted) {
+        await resetTo(worktree, state.head)
+        return finish('user_stopped')
+      }
       w = res
     }
 
@@ -379,6 +575,11 @@ async function runWithLock(
       }
     }
 
+    if (stopSignal.aborted) {
+      await resetTo(worktree, state.head)
+      return finish('user_stopped')
+    }
+
     const it: journal.IterationEvent = {
       type: 'iteration',
       n,
@@ -404,34 +605,57 @@ async function runWithLock(
     log(`#${n} ${verdict}: ${feedback}`)
 
     if (alert) {
-      const fatal = tampered.length > 0 || state.integrityViolations >= 2
       log(`ALERT: ${alert}`)
-      const go = !fatal && !opts.yes && runSpec.humanGates.onAlert === 'pause' && (await ask('Continue the loop?'))
-      journal.append(journalPath, { type: 'gate', kind: 'alert', reason: alert, decision: go ? 'continue' : 'stop', by: opts.yes ? 'auto' : 'terminal' })
-      if (!go) return finish(verdict === 'integrity_violation' ? 'integrity_violation' : 'escalated')
+      const stopReasonForAlert: TerminalReason = verdict === 'integrity_violation' ? 'integrity_violation' : 'escalated'
+      // Tampered graders and a second integrity violation stop the run without asking.
+      const fatal = tampered.length > 0 || state.integrityViolations >= 2
+      const auto = fatal || opts.yes || runSpec.humanGates.onAlert !== 'pause' ? 'stop' : null
+      setState('alert', n)
+      let decision: string | null
+      try {
+        decision = await awaitGate('alert', { reason: alert, iteration: n, verdict, fatal }, auto, `ALERT: ${alert} Continue the loop?`)
+      } catch (err) {
+        if (err instanceof StopRequested) return finish('user_stopped')
+        throw err
+      }
+      if (decision === null) {
+        log(`waiting for an alert decision: answer in the Argus dashboard, or resume ${runSpec.name} ${runId}`)
+        return { runId, runDir, reason: 'awaiting_gate', baseline, best: state.best, branch, worktree, iterations: state.iterationsDone, costUsd: state.costUsd }
+      }
+      // 'continue' and 'reject' both go on: the iteration was not accepted either way.
+      if (decision === 'stop') return finish(stopReasonForAlert)
     }
   }
 
   // Score a committed candidate: gates, then the score, then the sealed check if it would win.
   async function evaluate(n: number, commit: string, checks: CheckResult[]) {
+    // A stop request mid-check abandons scoring; the caller sees stopSignal and ends the run
+    // without recording the iteration, so a resume re-scores the committed candidate.
+    const stopped = { verdict: 'error' as Verdict, feedback: 'Stopped by the user.', error: null, judgement: null, scored: null }
+    setState('checking', n)
     for (const g of gates) {
-      const r = await runCheck(g, ctx(n))
+      const r = await runCheck(g, ctx(n), stopSignal)
+      if (stopSignal.aborted) return stopped
       saveLog(`iter-${n}-${g.id}.txt`, r.raw)
       checks.push(forJournal(r, false))
       if (r.infraError) throw new Error(r.infraError)
       if (!r.ok) {
+        setState('judging', n)
         return { verdict: 'bug' as Verdict, feedback: `Failed check "${g.id}": ${trim(r.message ?? '', 600)}`, error: trim(r.message ?? ''), judgement: null, scored: null }
       }
     }
-    const r = await runCheck(scoreCheck, ctx(n))
+    const r = await runCheck(scoreCheck, ctx(n), stopSignal)
+    if (stopSignal.aborted) return stopped
     saveLog(`iter-${n}-${scoreCheck.id}.txt`, r.raw)
     checks.push(forJournal(r, false))
     if (r.infraError) throw new Error(r.infraError)
     const s = r.ok ? scoredFrom(r, runSpec.acceptance.metric, n, commit) : null
     if (!s) {
+      setState('judging', n)
       return { verdict: 'bug' as Verdict, feedback: `Failed the score check: ${trim(r.message ?? 'no metric', 600)}`, error: trim(r.message ?? ''), judgement: null, scored: null }
     }
     const j = judge(s, state.best, runSpec.acceptance)
+    setState('judging', n)
     const metric = runSpec.acceptance.metric
     if (!j.accept) {
       return {
@@ -443,7 +667,10 @@ async function runWithLock(
       }
     }
     for (const v of onAccept) {
-      const sr = await runCheck(v, ctx(n))
+      setState('checking', n)
+      const sr = await runCheck(v, ctx(n), stopSignal)
+      if (stopSignal.aborted) return stopped
+      setState('judging', n)
       saveLog(`iter-${n}-${v.id}.txt`, sr.raw)
       checks.push(forJournal(sr, v.access === 'sealed'))
       if (sr.infraError) throw new Error(sr.infraError)
@@ -461,6 +688,7 @@ async function runWithLock(
   }
 
   async function finish(reason: TerminalReason): Promise<RunSummary> {
+    setState('finishing')
     const evs = journal.read(journalPath)
     const its = journal.iterations(evs)
     const cal = evs.find((e): e is journal.CalibrationEvent => e.type === 'calibration')
@@ -468,6 +696,22 @@ async function runWithLock(
     const best = its.filter((i) => i.verdict === 'accepted' && i.scored).map((i) => i.scored!).at(-1) ?? base
     const costUsd = its.reduce((a, i) => a + i.costUsd, 0)
     journal.append(journalPath, { type: 'run_finished', reason, best, baseline: base, iterations: its.length, costUsd })
+    // The result review is informational: it stays open in the dashboard until acknowledged;
+    // the runner does not wait for it.
+    journal.append(journalPath, {
+      type: 'gate_requested',
+      id: `g${evs.filter((e) => e.type === 'gate_requested').length + 1}`,
+      kind: 'review',
+      request: {
+        reason: `Finished (${reason}) after ${its.length} iterations: ${runSpec.acceptance.metric} ${base.value} -> ${best.value}.`,
+        terminalReason: reason,
+        baseline: base.value,
+        best: best.value,
+        bestIteration: best.iteration,
+        branch,
+      },
+    })
+    setState('finished')
     if (best.commit) await resetTo(worktree, best.commit)
     const summary: RunSummary = { runId, runDir, reason, baseline: base, best, branch, worktree, iterations: its.length, costUsd }
     writeFileSync(join(runDir, 'summary.json'), JSON.stringify(summary, null, 2))

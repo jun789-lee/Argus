@@ -2,6 +2,8 @@
 //
 //   argus-loop validate <loop>              expand and check a spec, print the full form
 //   argus-loop run <loop> [--yes]           start a run (asks before starting unless --yes)
+//                  [--no-wait]              at a human gate with no terminal, exit instead of
+//                                           waiting for a decision from the Argus dashboard
 //   argus-loop resume <loop> <run-id>       continue a run that stopped mid-way
 //                     [--approve]           (approves the start of a run waiting after calibration)
 //   argus-loop status <loop>                list runs and their best scores
@@ -54,6 +56,7 @@ async function main() {
       loopHome: home,
       yes: args.includes('--yes'),
       approve: args.includes('--approve'),
+      gateWait: args.includes('--no-wait') ? 'exit' : 'wait',
       fakeWorker: flag(args, '--fake-worker'),
       resumeRunId: cmd === 'resume' ? positional[1] : undefined,
     })

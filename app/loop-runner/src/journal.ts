@@ -2,6 +2,7 @@
 // it for display; resuming a run replays it.
 
 import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { CheckResult, Scored, Spec, TerminalReason, Verdict, WorkerReport } from './types'
 import type { Judgement } from './decide'
 
@@ -23,12 +24,53 @@ export interface CalibrationEvent {
   knownBad: CheckResult | null
   warnings: string[]
 }
+/** What the run is doing now (design §6.4); the dashboard's loop ring follows it. */
+export type LoopPhase =
+  | 'preparing'
+  | 'calibrating'
+  | 'awaiting_start'
+  | 'working'
+  | 'checking'
+  | 'judging'
+  | 'alert'
+  | 'paused'
+  | 'finishing'
+  | 'finished'
+export interface StateEvent {
+  type: 'state'
+  state: LoopPhase
+  n?: number
+}
+/** Written when a worker starts, so the dashboard links the live session to its iteration. */
+export interface IterationStartedEvent {
+  type: 'iteration_started'
+  n: number
+  operator: 'improve' | 'debug'
+  sessionId: string | null
+  startCommit: string
+}
+export type GateKind = 'start' | 'alert' | 'budget' | 'review'
+/** Decisions per kind: start: start | cancel; alert: continue | reject | stop;
+ *  budget: extend | finish; review: ack. */
+export interface GateRequestedEvent {
+  type: 'gate_requested'
+  id: string
+  kind: GateKind
+  request: { reason: string; [key: string]: unknown }
+}
 export interface GateEvent {
   type: 'gate'
-  kind: 'start' | 'alert'
+  /** Absent on gates recorded before gate ids existed. */
+  id?: string
+  kind: GateKind
   reason: string
-  decision: 'continue' | 'stop'
-  by: 'terminal' | 'auto'
+  decision: string
+  by: 'terminal' | 'auto' | 'ui'
+}
+export interface BudgetExtendedEvent {
+  type: 'budget_extended'
+  iterations: number
+  wallClockMs: number | null
 }
 export interface IterationEvent {
   type: 'iteration'
@@ -83,6 +125,10 @@ export type JournalEvent = (
   | GateEvent
   | IterationEvent
   | CandidateEvent
+  | StateEvent
+  | IterationStartedEvent
+  | GateRequestedEvent
+  | BudgetExtendedEvent
   | RunFinishedEvent
 ) & { t?: string }
 
@@ -103,6 +149,37 @@ export function pendingCandidate(events: JournalEvent[], n: number): CandidateEv
   if (events.some((e) => e.type === 'iteration' && e.n === n)) return null
   const c = events.filter((e): e is CandidateEvent & { t?: string } => e.type === 'candidate' && e.n === n).at(-1)
   return c ?? null
+}
+
+// ── Control: decisions and stop requests from outside (the Argus dashboard) ─────────
+// The dashboard appends to runs/<id>/control.jsonl; the runner only reads it. Keeping the
+// two files apart means the journal stays the runner's alone.
+
+export type ControlEvent =
+  | { t?: string; type: 'gate_decision'; gateId: string; decision: string; by?: string }
+  | { t?: string; type: 'stop'; by?: string }
+
+export function controlPath(runDir: string) {
+  return join(runDir, 'control.jsonl')
+}
+
+export function readControl(runDir: string): ControlEvent[] {
+  const p = controlPath(runDir)
+  if (!existsSync(p)) return []
+  const out: ControlEvent[] = []
+  for (const line of readFileSync(p, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try {
+      out.push(JSON.parse(line) as ControlEvent)
+    } catch {
+      /* a half-written line: picked up on the next read */
+    }
+  }
+  return out
+}
+
+export function appendControl(runDir: string, event: ControlEvent) {
+  appendFileSync(controlPath(runDir), JSON.stringify({ t: new Date().toISOString(), ...event }) + '\n')
 }
 
 export function iterations(events: JournalEvent[]): IterationEvent[] {
