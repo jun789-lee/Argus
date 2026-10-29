@@ -2,10 +2,31 @@ import { useMemo, useState } from 'react'
 import { Bot, MessageSquare, Settings2 } from 'lucide-react'
 import { useEffectiveEvents } from '@/hooks/use-effective-events'
 import { EventStream } from '@/components/event-stream/event-stream'
-import { buildTurnTree, type TurnNode } from '@/lib/turn-tree'
+import { buildTurnTree, type TreeEvent, type TurnNode } from '@/lib/turn-tree'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { TurnTreePanel, nodeMeta, nodeTitle, statusLabel } from './turn-tree-panel'
+import { ConversationView, useOpenEventInLog } from './conversation-view'
+
+/** The turn's final reply, as reported by its Stop / SubagentStop hook. */
+function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
+  const pick = (e: TreeEvent | undefined) =>
+    typeof e?.payload?.last_assistant_message === 'string'
+      ? (e.payload.last_assistant_message as string)
+      : null
+  if (node.kind === 'prompt') {
+    return pick([...node.events].reverse().find((e) => e.hookName === 'Stop'))
+  }
+  if (node.kind === 'subagent') {
+    // SubagentStop is logged under the parent agent, naming the child.
+    return pick(
+      [...allEvents]
+        .reverse()
+        .find((e) => e.hookName === 'SubagentStop' && e.payload?.agent_id === node.agentId),
+    )
+  }
+  return null
+}
 
 function findNode(nodes: TurnNode[], id: string): TurnNode | null {
   for (const n of nodes) {
@@ -37,6 +58,13 @@ export function PromptView({ sessionId }: { sessionId: string }) {
   const selected = (pickedId && findNode(roots, pickedId)) || latest
   const onSelect = (id: string) => setPickedId(id === latest?.id ? null : id)
 
+  const [tab, setTab] = useState<'conversation' | 'log'>('conversation')
+  const openEventInLog = useOpenEventInLog(() => setTab('log'))
+  const output = useMemo(
+    () => (selected ? finalOutput(selected, rawEvents ?? []) : null),
+    [selected, rawEvents],
+  )
+
   const eventIds = useMemo(
     () => (selected ? new Set(selected.events.map((e) => e.id)) : new Set<number>()),
     [selected],
@@ -49,7 +77,42 @@ export function PromptView({ sessionId }: { sessionId: string }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {selected && <NodeHeader node={selected} following={pickedId === null} />}
-        <EventStream key={sessionId} onlyEventIds={eventIds} />
+        {selected && selected.kind !== 'system' && (
+          <div className="flex shrink-0 gap-3 border-b border-border px-3 text-xs">
+            {(
+              [
+                ['conversation', t('Conversation')],
+                ['log', t('Log')],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={cn(
+                  '-mb-px border-b-2 py-1.5 cursor-pointer transition-colors',
+                  tab === key
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+                onClick={() => setTab(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {selected && selected.kind !== 'system' && tab === 'conversation' ? (
+          <ConversationView
+            key={selected.id}
+            sessionId={sessionId}
+            node={selected}
+            output={output}
+            follow={pickedId === null || selected.endedAt === null}
+            onOpenEvent={openEventInLog}
+          />
+        ) : (
+          <EventStream key={sessionId} onlyEventIds={eventIds} />
+        )}
       </div>
     </div>
   )

@@ -373,6 +373,12 @@ export const ko: Record<string, string> = {
   'No prompts yet': '아직 프롬프트가 없습니다',
   'following latest': '최신 따라가는 중',
   'Show full prompt': '프롬프트 전체 보기',
+  Conversation: '대화',
+  Log: '로그',
+  'Final answer': '최종 답변',
+  'Working…': '작업 중…',
+  '{n} failed': '{n}개 실패',
+  'Open in log': '로그에서 보기',
 
   // ── Token usage / pricing ───────────────────────────────
   Item: '항목',

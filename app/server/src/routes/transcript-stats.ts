@@ -5,6 +5,7 @@ import { config } from '../config'
 import { resolveTranscriptPath } from '../services/transcript-path'
 import { parseSessionTranscripts } from '../transcript-parser'
 import { readCacheStatus } from '../services/cache-status'
+import { readAssistantMessages } from '../services/assistant-messages'
 
 type Env = { Variables: { store: EventStore } }
 
@@ -30,6 +31,60 @@ router.get('/sessions/:sessionId/cache-status', async (c) => {
     }
     if (err?.code === 'EACCES') {
       return c.json({ error: 'file_unreadable', message: err.message }, 403)
+    }
+    throw err
+  }
+})
+
+// Claude's text replies for the prompt view's conversation log.
+//   ?promptId=…  main-chain replies to that prompt (session transcript)
+//   ?agentId=…   a subagent's replies (its own transcript, whose path the
+//                SubagentStop hook reported as agent_transcript_path)
+router.get('/sessions/:sessionId/assistant-messages', async (c) => {
+  if (!config.transcriptStats.enabled) {
+    return c.json({ error: 'disabled', message: 'Transcript parsing is disabled.' }, 404)
+  }
+  const sessionId = c.req.param('sessionId')
+  const promptId = c.req.query('promptId') || null
+  const agentId = c.req.query('agentId') || null
+  const store = c.get('store')
+
+  let hostPath: string | null = null
+  if (agentId) {
+    const stops = await store.getEventsForSession(sessionId, { hookName: 'SubagentStop' })
+    for (const e of stops) {
+      try {
+        const p = JSON.parse(e.payload)
+        if (p?.agent_id === agentId && typeof p.agent_transcript_path === 'string') {
+          hostPath = p.agent_transcript_path
+        }
+      } catch {
+        // skip malformed payloads
+      }
+    }
+  } else {
+    hostPath = await store.getSessionTranscriptPath(sessionId)
+  }
+  if (!hostPath) {
+    return c.json({ error: 'no_transcript', message: 'No transcript path found.' }, 404)
+  }
+
+  const resolved = resolveTranscriptPath(hostPath, config.transcriptStats.bases)
+  try {
+    const messages = await readAssistantMessages(resolved, config.transcriptStats.maxFileBytes, {
+      promptId: agentId ? null : promptId,
+      includeSidechain: !!agentId,
+    })
+    return c.json({ messages }, 200)
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return c.json({ error: 'file_not_found', message: 'Transcript file not found.' }, 404)
+    }
+    if (err?.code === 'EACCES') {
+      return c.json({ error: 'file_unreadable', message: err.message }, 403)
+    }
+    if (err?.code === 'E2BIG') {
+      return c.json({ error: 'file_too_large', message: err.message }, 413)
     }
     throw err
   }

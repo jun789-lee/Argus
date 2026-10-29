@@ -9,6 +9,11 @@ import type {
   Filter,
 } from '@/types'
 
+export interface AssistantMessage {
+  timestamp: number
+  text: string
+}
+
 export interface CacheStatus {
   /** Timestamp (ms) of the last main-chain API response. */
   lastRequestAt: number | null
@@ -259,6 +264,23 @@ export const api = {
       }
     }
     return { ok: true, status: 200, data: body as TranscriptStatsData }
+  },
+
+  /** Claude's text replies for one prompt (main chain) or one subagent,
+   *  from the transcript. Null when the transcript isn't readable. */
+  getAssistantMessages: async (
+    sessionId: string,
+    by: { promptId?: string; agentId?: string },
+  ): Promise<AssistantMessage[] | null> => {
+    const q = new URLSearchParams()
+    if (by.promptId) q.set('promptId', by.promptId)
+    if (by.agentId) q.set('agentId', by.agentId)
+    const res = await fetch(
+      `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/assistant-messages?${q}`,
+    )
+    if (!res.ok) return null
+    const body = await res.json().catch(() => null)
+    return Array.isArray(body?.messages) ? (body.messages as AssistantMessage[]) : null
   },
 
   /** Prompt-cache expiry estimate from the session transcript. Returns null

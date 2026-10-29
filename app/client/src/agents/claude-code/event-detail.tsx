@@ -58,7 +58,7 @@ function looksLikeMarkdown(s: string): boolean {
   return false
 }
 
-const mdComponents = {
+export const mdComponents = {
   h1: ({ children, ...props }: React.ComponentProps<'h1'>) => (
     <h1 className="text-xs font-bold mt-3 first:mt-0 mb-1.5 text-foreground" {...props}>
       {children}
