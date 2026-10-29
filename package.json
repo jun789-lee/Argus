@@ -2,7 +2,7 @@
   "name": "agents-observe",
   "version": "0.9.12",
   "description": "Argus: real-time observability dashboard for Claude Code agents (fork of simple10/agents-observe)",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": "https://github.com/jun789-lee/Argus",
   "homepage": "https://github.com/jun789-lee/Argus",
   "private": true,

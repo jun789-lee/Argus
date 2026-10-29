@@ -2,7 +2,7 @@
 
 Real-time observability dashboard for Claude Code and Codex agents — named after the hundred-eyed watchman of Greek myth.
 
-> **Fork notice:** Argus is a fork of [simple10/agents-observe](https://github.com/simple10/agents-observe) by Joe Johnston, used under the MIT License (see [LICENSE](LICENSE)). It is not affiliated with or endorsed by the original project.
+> **Fork notice:** Argus is a fork of [simple10/agents-observe](https://github.com/simple10/agents-observe) by Joe Johnston. The original agents-observe code is used under the MIT License (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)); Argus's own additions are proprietary (see [LICENSE](LICENSE)). It is not affiliated with or endorsed by the original project.
 >
 > **What's different in this fork**
 > - Korean UI (한국어 지원) with a language switcher under Settings → Display → Language
@@ -328,4 +328,5 @@ Run `just db-reset` to delete the SQLite database and start fresh (stops the ser
 
 ## License
 
-MIT
+Argus original work: proprietary, all rights reserved — see [LICENSE](LICENSE).
+Code derived from agents-observe: MIT License, Copyright (c) 2025 Joe Johnston — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
