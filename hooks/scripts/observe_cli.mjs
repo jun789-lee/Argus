@@ -12,7 +12,12 @@ import { getJson } from './lib/http.mjs'
 import { createLogger } from './lib/logger.mjs'
 import { startServer, stopServer } from './lib/docker.mjs'
 import { removeDatabase } from './lib/fs.mjs'
-import { hookCommand, hookSyncCommand, hookAutostartCommand } from './lib/hooks.mjs'
+import {
+  hookCommand,
+  hookSyncCommand,
+  hookAutostartCommand,
+  hookPromptCommand,
+} from './lib/hooks.mjs'
 
 const cliArgs = parseArgs(process.argv.slice(2))
 const config = getConfig(cliArgs)
@@ -23,6 +28,9 @@ switch (cliArgs.commands[0] || 'help') {
     console.log('Usage: node observe_cli.mjs <command> [--base-url URL] [--project-slug SLUG]')
     console.log('  hook:            Send an event (fire-and-forget)')
     console.log('  hook-sync:       Send an event and return systemMessage JSON')
+    console.log(
+      '  hook-prompt:     UserPromptSubmit: POST event, optionally add plan-tracking context',
+    )
     console.log('  hook-autostart:  Like hook-sync, but auto-starts server if unreachable')
     console.log('  health:          Check the server health')
     console.log('  start:           Start the server')
@@ -38,6 +46,9 @@ switch (cliArgs.commands[0] || 'help') {
     break
   case 'hook-sync':
     hookSyncCommand(config, log)
+    break
+  case 'hook-prompt':
+    hookPromptCommand(config, log)
     break
   case 'hook-autostart':
     hookAutostartCommand(config, log)

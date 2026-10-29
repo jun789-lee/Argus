@@ -388,6 +388,18 @@ export const ko: Record<string, string> = {
   'No activity in this time range': '이 시간 범위에는 활동이 없습니다',
   now: '지금',
   '{n} subagents': '서브에이전트 {n}개',
+
+  // ── Plan view ───────────────────────────────────────────
+  Plan: '계획',
+  Progress: '진행도',
+  '{done}/{total} steps · {pct}%': '{total}단계 중 {done}단계 · {pct}%',
+  '{n} steps so far': '지금까지 {n}단계',
+  "Claude didn't keep a task list for this prompt, so each reply is shown as a step and the total is unknown.":
+    'Claude가 이 프롬프트에서 할 일 목록을 만들지 않아, 답변 하나를 한 단계로 보여줘요. 전체 단계 수는 알 수 없어요.',
+  'No plan yet. Steps appear once Claude starts working.':
+    '아직 계획이 없어요. Claude가 작업을 시작하면 단계가 나타나요.',
+  'Outside any step': '단계 밖 작업',
+  '{done}/{total} steps done': '{total}단계 중 {done}단계 완료',
   'Working…': '작업 중…',
   '{n} failed': '{n}개 실패',
   'Open in log': '로그에서 보기',

@@ -41,17 +41,7 @@ export function ConversationView({
   /** Jump to an event in the full log. */
   onOpenEvent: (eventId: number) => void
 }) {
-  const by = node.kind === 'subagent' ? { agentId: node.agentId } : { promptId: node.id }
-  const { data: messages, refetch } = useQuery({
-    queryKey: ['assistant-messages', sessionId, node.kind, node.id],
-    queryFn: () => api.getAssistantMessages(sessionId, by),
-    enabled: node.kind !== 'system',
-    staleTime: 5_000,
-  })
-  // New hook events usually mean new transcript entries — refetch while live.
-  useEffect(() => {
-    if (node.endedAt === null || output === null) refetch()
-  }, [node.events.length, node.endedAt, output, refetch])
+  const messages = useAssistantMessages(sessionId, node, output)
 
   const { events: enriched } = useProcessedEvents()
   const items = useMemo(
@@ -100,6 +90,26 @@ export function ConversationView({
       )}
     </div>
   )
+}
+
+/** Claude's text replies for a turn node; refetches while the turn is live. */
+export function useAssistantMessages(
+  sessionId: string,
+  node: TurnNode,
+  output: string | null,
+): AssistantMessage[] | null | undefined {
+  const by = node.kind === 'subagent' ? { agentId: node.agentId } : { promptId: node.id }
+  const { data, refetch } = useQuery({
+    queryKey: ['assistant-messages', sessionId, node.kind, node.id],
+    queryFn: () => api.getAssistantMessages(sessionId, by),
+    enabled: node.kind !== 'system',
+    staleTime: 5_000,
+  })
+  // New hook events usually mean new transcript entries — refetch while live.
+  useEffect(() => {
+    if (node.endedAt === null || output === null) refetch()
+  }, [node.events.length, node.endedAt, output, refetch])
+  return data
 }
 
 export function buildItems(

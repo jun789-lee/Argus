@@ -178,6 +178,42 @@ export function hookCommand(config, log) {
   })
 }
 
+/** Context added to each prompt when planNudge is on (see config.mjs). */
+export const PLAN_NUDGE_CONTEXT = [
+  '[Argus plan tracking] If this request needs 3 or more distinct steps, first create a task list',
+  'with your task tool (TaskCreate, or TodoWrite if that is what you have), one task per step,',
+  'written so the user can follow it. Mark each task in_progress when you start it and completed',
+  'when it is done. When you hand a step to a subagent, start the subagent description with that',
+  "task's subject. Skip the task list for simple one-step requests.",
+].join(' ')
+
+/**
+ * hook-prompt: UserPromptSubmit handler. Prints the optional plan-tracking
+ * context for Claude first (so the prompt isn't held up by the server),
+ * then posts the event like `hook`.
+ */
+export async function hookPromptCommand(config, log) {
+  muteConsole()
+  if (config.planNudge) {
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'UserPromptSubmit',
+          additionalContext: PLAN_NUDGE_CONTEXT,
+        },
+      }) + '\n',
+    )
+  }
+  try {
+    const { result } = await sendHookSync(config, log)
+    if (result?.body?.requests) {
+      await handleCallbackRequests(result.body.requests, { config, log })
+    }
+  } catch (err) {
+    log.error(`hook-prompt failed: ${err.message}`)
+  }
+}
+
 /**
  * hook-sync: Synchronous event POST that returns systemMessage JSON to Claude.
  * Mutes all console output so only the JSON goes to stdout.

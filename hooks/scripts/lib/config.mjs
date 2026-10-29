@@ -264,6 +264,13 @@ export function getConfig(overrides = {}) {
      * account (`oauthAccount`). Lives inside CLAUDE_CONFIG_DIR when that
      * is set, otherwise at ~/.claude.json.
      */
+    /**
+     * WIP: when '1', the UserPromptSubmit hook (hook-prompt) asks Claude to
+     * keep a task list for multi-step requests so the dashboard can show
+     * a per-prompt plan and progress.
+     */
+    planNudge: process.env.AGENTS_OBSERVE_PLAN_NUDGE === '1',
+
     claudeConfigFile: process.env.CLAUDE_CONFIG_DIR
       ? resolve(process.env.CLAUDE_CONFIG_DIR, '.claude.json')
       : resolve(homeDir, '.claude.json'),

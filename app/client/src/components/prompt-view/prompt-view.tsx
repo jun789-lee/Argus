@@ -8,6 +8,7 @@ import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { TurnTreePanel, nodeMeta, nodeTitle, statusLabel } from './turn-tree-panel'
 import { ConversationView, useOpenEventInLog } from './conversation-view'
+import { PlanView } from './plan-view'
 
 /** The turn's final reply, as reported by its Stop / SubagentStop hook. */
 function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
@@ -61,7 +62,7 @@ export function PromptView({ sessionId }: { sessionId: string }) {
   const selected = (pickedId && findNode(roots, pickedId)) || latest
   const onSelect = (id: string) => setSelectedTurn(id === latest?.id ? null : { sessionId, id })
 
-  const [tab, setTab] = useState<'conversation' | 'log'>('conversation')
+  const [tab, setTab] = useState<'plan' | 'conversation' | 'log'>('plan')
   const openEventInLog = useOpenEventInLog(() => setTab('log'))
   const output = useMemo(
     () => (selected ? finalOutput(selected, rawEvents ?? []) : null),
@@ -84,6 +85,7 @@ export function PromptView({ sessionId }: { sessionId: string }) {
           <div className="flex shrink-0 gap-3 border-b border-border px-3 text-xs">
             {(
               [
+                ['plan', t('Plan')],
                 ['conversation', t('Conversation')],
                 ['log', t('Log')],
               ] as const
@@ -104,7 +106,15 @@ export function PromptView({ sessionId }: { sessionId: string }) {
             ))}
           </div>
         )}
-        {selected && selected.kind !== 'system' && tab === 'conversation' ? (
+        {selected && selected.kind !== 'system' && tab === 'plan' ? (
+          <PlanView
+            key={selected.id}
+            sessionId={sessionId}
+            node={selected}
+            output={output}
+            onSelectNode={onSelect}
+          />
+        ) : selected && selected.kind !== 'system' && tab === 'conversation' ? (
           <ConversationView
             key={selected.id}
             sessionId={sessionId}

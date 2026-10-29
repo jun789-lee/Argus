@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronDown, ChevronRight, MessageSquare, Settings2 } from 'lucide-react'
 import type { TurnNode, TurnStatus } from '@/lib/turn-tree'
+import { buildPlan } from '@/lib/plan'
 import { formatDuration } from '@/components/settings/session-modal'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -44,6 +45,25 @@ export function nodeMeta(node: TurnNode, now: number): string {
   }
   if (node.errorCount > 0) parts.push(t('{n} errors', { n: node.errorCount }))
   return parts.join(' · ')
+}
+
+/** "3/4" for prompts whose plan comes from a real task list. */
+function PlanBadge({ node }: { node: TurnNode }) {
+  const plan = useMemo(() => (node.kind === 'prompt' ? buildPlan(node) : null), [node])
+  if (!plan || plan.progress === null) return null
+  return (
+    <span
+      className={cn(
+        'shrink-0 rounded px-1 tabular-nums',
+        plan.progress === 1
+          ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+          : 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      )}
+      title={t('{done}/{total} steps done', { done: plan.completed, total: plan.total })}
+    >
+      {plan.completed}/{plan.total}
+    </span>
+  )
 }
 
 function hasRunning(nodes: TurnNode[]): boolean {
@@ -134,6 +154,7 @@ function Row({
             <span className={cn('truncate tabular-nums', node.errorCount > 0 && 'text-red-500/80')}>
               {nodeMeta(node, now)}
             </span>
+            <PlanBadge node={node} />
           </div>
         </div>
       </div>
