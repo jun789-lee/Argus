@@ -58,6 +58,13 @@ const EVAL_COMMAND =
   /\b(test|tests|vitest|pytest|jest|mocha|tsc|lint|eslint|build|check|verify|validate)\b/i
 const EVAL_TITLE = /(검증|테스트|평가|확인|review|verify|validat|test|check|evaluat)/i
 const TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TodoWrite'])
+/** Team roles whose whole job is checking work (see ~/.claude/agents). */
+const EVAL_AGENT_TYPES = new Set(['verifier', 'reviewer'])
+
+/** A team member doing evaluation: a checker role, or a task named like one. */
+function isEvalMember(m: { node: { agentType: string | null }; task: string }): boolean {
+  return (!!m.node.agentType && EVAL_AGENT_TYPES.has(m.node.agentType)) || EVAL_TITLE.test(m.task)
+}
 
 function commandOf(e: TreeEvent): string | null {
   const cmd = (e.payload?.tool_input as Record<string, unknown> | undefined)?.command
@@ -108,7 +115,7 @@ export function cycleFromMission(mission: TurnNode, flow: MissionFlow, plan: Pla
     return !(typeof tool === 'string' && (TASK_TOOLS.has(tool) || tool === 'Agent'))
   })
   const memberItems: StageItem[] = flow.members
-    .filter((m) => !EVAL_TITLE.test(m.task))
+    .filter((m) => !isEvalMember(m))
     .map((m) => ({
       id: m.node.id,
       label: m.task,
@@ -130,7 +137,7 @@ export function cycleFromMission(mission: TurnNode, flow: MissionFlow, plan: Pla
 
   // Evaluate: check commands and review-like members (inferred).
   const evalMembers: StageItem[] = flow.members
-    .filter((m) => EVAL_TITLE.test(m.task))
+    .filter((m) => isEvalMember(m))
     .map((m) => ({
       id: m.node.id,
       label: m.task,

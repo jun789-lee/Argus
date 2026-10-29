@@ -123,3 +123,26 @@ describe('cycleFromMission', () => {
     expect(c.stages.decide.status).toBe('idle')
   })
 })
+
+describe('checker roles', () => {
+  test('verifier and reviewer members count as evaluation, others as execution', () => {
+    const member = (id: string, agentType: string, title: string) =>
+      node({ id, kind: 'subagent', agentType, title, startedAt: 1, endedAt: 5, status: 'done' })
+    const mission = node({
+      id: 'p',
+      status: 'done',
+      endedAt: 10,
+      children: [
+        member('a', 'researcher', 'Find where X is handled'),
+        member('b', 'verifier', 'Run the client suite'),
+        member('c', 'reviewer', 'Look over the diff'),
+      ],
+    })
+    const c = cycle(mission)
+    expect(c.stages.execute.items.map((i) => i.id)).toEqual(['a'])
+    expect(c.stages.evaluate.items.map((i) => [i.id, i.icon])).toEqual([
+      ['b', '🧪'],
+      ['c', '👀'],
+    ])
+  })
+})

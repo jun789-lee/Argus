@@ -17,6 +17,9 @@ export interface Role {
 
 const ROLES: Record<string, Role> = {
   Explore: { label: 'Researcher', icon: '🔍' },
+  researcher: { label: 'Researcher', icon: '🔍' },
+  verifier: { label: 'Verifier', icon: '🧪' },
+  reviewer: { label: 'Reviewer', icon: '👀' },
   Plan: { label: 'Planner', icon: '🗺️' },
   'general-purpose': { label: 'Generalist', icon: '🧑‍💻' },
   'web-fetch': { label: 'Web reader', icon: '🌐' },

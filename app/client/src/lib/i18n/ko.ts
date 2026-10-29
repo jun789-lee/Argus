@@ -442,6 +442,8 @@ export const ko: Record<string, string> = {
   'No decisions recorded yet.': '아직 기록된 판단이 없어요.',
   'In progress…': '진행 중…',
   Researcher: '조사원',
+  Verifier: '검증원',
+  Reviewer: '리뷰어',
   Planner: '설계자',
   Generalist: '범용 담당',
   'Web reader': '웹 리더',
