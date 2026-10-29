@@ -321,6 +321,62 @@ on_exit:
 | `user_stopped` | 사용자가 중지 |
 | `error` | 러너 자체 오류, 사용량 한도 등 |
 
+### 5.4 클래스와 프리셋 (2026-10-29 결정)
+
+대회가 바뀌어도 스펙의 대부분은 똑같다. 그래서 스펙을 세 층으로 나눈다.
+
+| 층 | 무엇 | 어디에 |
+|---|---|---|
+| **클래스** | 모든 대회가 공유하는 고정 구조와 기본값. v1은 `ml-improve`("ML 자동 개선") 하나 | Argus 저장소 `app/loop-runner/src/classes/` (Argus 코드와 함께 관리) |
+| **프리셋** | 대회 유형별 기본값: `optimization` / `data` / `simulation` | 클래스 안 |
+| **대회별 스펙** | 대회마다 다른 것만 적은 짧은 파일 | `~/.agents-observe/loops/<이름>/spec.yaml` |
+
+러너는 짧은 스펙을 클래스·프리셋 규칙으로 **펼쳐서**(§5.2의 전체 형태로) 실행한다. 펼친 결과는 실행 기록에 함께 저장하고, Argus 미리보기 화면에도 보여 준다. **클래스를 고치면 그 클래스를 쓰는 모든 대회가 함께 좋아진다.**
+
+#### `ml-improve` 클래스가 고정하는 것
+- **검사 3단:** `quick`(빠른 검사, 통과 필수) → `score`(본 채점) → `sealed`(봉인 재확인, 채택 후보일 때만, 결과는 작업자에게 비공개)
+- **채택:** `beats_best_by_margin`. 최선본을 돌려주고 상위 3개 보관
+- **작업자:** 연산자 `improve`·`debug`, 모든 권한 + `git push`·Kaggle 제출 차단, 반복당 30분 (스펙에서 변경 가능)
+- **기억:** 최근 시도 5개, 교훈 3개
+- **종료:** 디버그 연속 3회 실패 시 되돌림, 정체 감지, 무결성 위반 정지 (§5.3 판정 규칙)
+- **사람 확인 4곳:** 시작 승인, 경보, 예산 연장, 결과 검토
+- **평가기 점검:** 시작 버전 2회 채점 + `known_bad`
+- **기록 형식과 대시보드 화면 구성** (§9, §10)
+
+#### 프리셋이 바꾸는 것
+
+| | `optimization` | `data` | `simulation` |
+|---|---|---|---|
+| 예시 | 양자 회로 비용 최소화 (지금 대회) | 표·이미지 예측 | 봇 대전 |
+| 점수 잡음 | 없음 (같은 입력이면 같은 값) | 폴드마다 흔들림 | 시드마다 흔들림 |
+| 채택 여유폭 | 상대 0.1% | 상대 0.5% + 표준오차 2배 | 상대 1% + 표준오차 2배 |
+| 짝 비교 | 안 함 | 폴드별 | 시드별 |
+| `sealed`의 역할 | **gate** (다른 무작위 결과로도 반드시 통과) | **watch** (봉인 데이터로 발산 감시) | **watch** (봉인 시드·상대로 발산 감시) |
+| 발산·이상 급등 감시 | 안 함 (점수가 결정적) | 함 | 함 |
+| 평가기 점검의 "2회 채점" | 같은 값이어야 정상 (다르면 경고) | 잡음 크기 측정 | 잡음 크기 측정 |
+
+#### 대회별 스펙 (짧은 형태)
+
+```yaml
+version: 1
+class: ml-improve
+preset: optimization
+name: qc-invsqrt
+description: "..."
+goal:      { objective: "...", constraints: [...] }
+workspace: { repo: ..., editable: [...], protected: [...] }
+worker:    { instructions: "..." }            # 그 밖은 클래스 기본값
+checks:
+  quick:  { run: "...", timeout: 20m }
+  score:  { run: "...", metric: cost, direction: minimize, timeout: 45m }
+  sealed: { run: "...", timeout: 45m }
+known_bad: "..."
+budget:    { max_iterations: 5, wall_clock: 4h }  # 필수
+overrides: {}                                  # 선택: 클래스·프리셋 기본값 덮어쓰기
+```
+
+**펼침 규칙:** `checks.quick` → `{trust: high, access: dev, role: gate, when: every}`, `checks.score` → `{trust: high, access: dev, role: score}`이고 `acceptance.metric = score.<metric>`, `checks.sealed` → `{trust: high, access: sealed, role: 프리셋에 따름, when: on_accept}`. **검사 규칙:** `checks.score`와 `budget.max_iterations`는 필수, `quick`·`sealed`가 없으면 경고.
+
 ---
 
 ## 6. 실행 구조
@@ -529,7 +585,15 @@ WebSocket으로 `loop_update`를 모든 화면에 보내 목록과 상세가 실
 
 ## 11. 첫 적용: Kaggle 대회
 
-**상태(2026-10-29):** Kaggriculture는 종료되었고, **새로 참여할 대회에서 시작한다**(대회 미정, §15-1). Kaggle 대회는 크게 두 유형이라 유형마다 검증자 구성이 다르다.
+**상태(2026-10-29):** Kaggriculture는 종료되었고, 첫 대회는 **[Google Quantum AI - Verifiable Quantum Circuit Compilation](https://www.kaggle.com/competitions/google-verifiable-quantum-circuit-compilation)**(마감 2027-01-20)로 정했다. 회로를 공식 검증기로 검사하고 비용(큐비트·게이트 수)으로 채점하는 **최적화형** 대회다(§5.4 `optimization` 프리셋). 세 문제 중 **invsqrt부터** 시작하고, dfthcsos가 다음이다. **dqi는 제외**한다: 기준 회로 검사만으로 이 PC의 WSL 메모리(7GB)를 넘어 강제 종료되었다. 아래는 데이터형·시뮬레이션형 대회에 쓸 참고 설계로 남긴다.
+
+| 문제 | 전체 검사 1회 (기준 회로) | 메모리 | 상태 |
+|---|---|---|---|
+| invsqrt | 282초 | 0.5GB | 첫 루프 대상 |
+| dfthcsos | 95초 | 1.1GB | 다음 |
+| dqi | 392초 후 강제 종료 | 7.4GB 초과 | 제외 |
+
+Kaggle 대회는 크게 두 유형이라 유형마다 검증자 구성이 다르다.
 
 | 유형 | 순위를 정하는 것 | 루프의 채점(score 검증자) | 가장 큰 위험 | 정리된 곳 |
 |---|---|---|---|---|
@@ -705,11 +769,11 @@ on_exit: { return: best, keep_top: 3 }
 ## 15. 정해 주셔야 할 것
 
 **아직 정할 것**
-1. **첫 대회:** 어느 Kaggle 대회에 참여할지. 유형(데이터형 / 시뮬레이션형)에 따라 §11.0 또는 §11.1~11.6을 쓴다.
-2. **기본 예산:** 반복 횟수와 전체 시간. 대회가 정해지면 반복 1회 시간을 실측한 뒤 정한다. 따질 것: 반복 1회 시간(주로 채점 시간), 구독 사용량 한도, 이득이 앞쪽 반복에 몰리는 경향(보고서).
+1. **기본 예산:** 반복 횟수와 전체 시간. 대회가 정해지면 반복 1회 시간을 실측한 뒤 정한다. 따질 것: 반복 1회 시간(주로 채점 시간), 구독 사용량 한도, 이득이 앞쪽 반복에 몰리는 경향(보고서).
 
 **정해진 것 (2026-10-29)**
-- Kaggriculture는 종료 → 새 대회에서 시작
+- Kaggriculture는 종료 → 첫 대회는 Google Quantum AI 회로 컴파일 대회 (invsqrt → dfthcsos, dqi 제외)
+- 스펙 구조: `ml-improve` 클래스 + 프리셋 3개 + 대회별 짧은 스펙 (§5.4)
 - 설계 화면: YAML 파일 + Argus의 검사·미리보기
 - 작업자 권한: 모든 권한(`bypassPermissions`), 단 `git push`와 Kaggle 제출 명령은 차단
 - 이 문서: `feat/auto-loop` 브랜치에 커밋·푸시
