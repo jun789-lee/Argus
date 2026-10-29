@@ -55,13 +55,58 @@ getServerHealth().then((data) => {
   else if (level === 'debug') logLevel = 'debug'
 })
 
-export function useWebSocket(sessionId: string | null) {
+/** Stable string key for a set of session ids, so callers can pass a
+ *  fresh array every render without re-sending the subscription. Order and
+ *  duplicates don't matter. */
+export function subscriptionKey(sessionIds: readonly string[]): string {
+  return [...new Set(sessionIds.filter(Boolean))].sort().join('\n')
+}
+
+function idsFromKey(key: string): string[] {
+  return key === '' ? [] : key.split('\n')
+}
+
+/** Which session an incoming event belongs to, or `null` to drop it.
+ *  The server always tags events, but if a tag is missing we only fall
+ *  back to the subscription when exactly one session is subscribed —
+ *  guessing with two or more would file the event under the wrong one. */
+export function resolveEventSessionId(
+  wireSessionId: string | null | undefined,
+  subscribed: ReadonlySet<string>,
+): string | null {
+  if (wireSessionId) return subscribed.has(wireSessionId) ? wireSessionId : null
+  if (subscribed.size === 1) return subscribed.values().next().value ?? null
+  return null
+}
+
+/** Group buffered events by their own sessionId, keeping arrival order
+ *  and skipping sessions that are no longer subscribed. Each group is
+ *  written to that session's `['events', id]` cache — never another's. */
+export function groupEventsBySession(
+  events: readonly ParsedEvent[],
+  subscribed: ReadonlySet<string>,
+): Map<string, ParsedEvent[]> {
+  const groups = new Map<string, ParsedEvent[]>()
+  for (const event of events) {
+    const sessionId = event.sessionId
+    if (!sessionId || !subscribed.has(sessionId)) continue
+    const group = groups.get(sessionId)
+    if (group) group.push(event)
+    else groups.set(sessionId, [event])
+  }
+  return groups
+}
+
+/** Subscribe to live events for every session in `sessionIds`. Pass an
+ *  empty array to receive only global updates. */
+export function useWebSocket(sessionIds: readonly string[]) {
   const queryClient = useQueryClient()
   const wsRef = useRef<WebSocket | null>(null)
   const [connected, setConnected] = useState(false)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const sessionIdRef = useRef(sessionId)
-  sessionIdRef.current = sessionId
+  const subKey = subscriptionKey(sessionIds)
+  const subscribedRef = useRef<Set<string>>(new Set())
+  subscribedRef.current = new Set(idsFromKey(subKey))
 
   const sendMessage = useCallback((msg: WSClientMessage) => {
     const ws = wsRef.current
@@ -70,13 +115,14 @@ export function useWebSocket(sessionId: string | null) {
     }
   }, [])
 
-  // Send subscribe/unsubscribe when sessionId changes
+  // Send the full subscription list whenever it changes
   useEffect(() => {
     if (!connected) return
-    if (sessionId) {
-      sendMessage({ type: 'subscribe', sessionId })
+    const ids = idsFromKey(subKey)
+    if (ids.length > 0) {
+      sendMessage({ type: 'subscribe', sessionIds: ids })
       if (logLevel === 'debug' || logLevel === 'trace') {
-        console.log(`[WS] Subscribing to session ${sessionId.slice(0, 8)}`)
+        console.log(`[WS] Subscribing to sessions ${ids.map((id) => id.slice(0, 8)).join(', ')}`)
       }
     } else {
       sendMessage({ type: 'unsubscribe' })
@@ -84,10 +130,13 @@ export function useWebSocket(sessionId: string | null) {
         console.log('[WS] Unsubscribed (no session selected)')
       }
     }
-    // Drop any pending buffered events from the previous session — they'd
-    // otherwise be written to the new session's cache when the next flush runs.
-    eventBufferRef.current = []
-  }, [sessionId, connected, sendMessage])
+    // Drop buffered events for sessions that were just unsubscribed; keep
+    // the rest so a session that stays subscribed doesn't lose events.
+    const subscribed = new Set(ids)
+    eventBufferRef.current = eventBufferRef.current.filter(
+      (e) => !!e.sessionId && subscribed.has(e.sessionId),
+    )
+  }, [subKey, connected, sendMessage])
 
   // Batch incoming events to avoid O(N) array copies per event.
   // Events accumulate in a buffer and flush to the cache every 100ms.
@@ -98,11 +147,11 @@ export function useWebSocket(sessionId: string | null) {
     const buffer = eventBufferRef.current
     if (buffer.length === 0) return
     eventBufferRef.current = []
-    const currentSessionId = sessionIdRef.current
-    if (!currentSessionId) return
-    queryClient.setQueryData<ParsedEvent[]>(['events', currentSessionId], (old) =>
-      old ? [...old, ...buffer] : [...buffer],
-    )
+    for (const [sessionId, events] of groupEventsBySession(buffer, subscribedRef.current)) {
+      queryClient.setQueryData<ParsedEvent[]>(['events', sessionId], (old) =>
+        old ? [...old, ...events] : [...events],
+      )
+    }
     if (logLevel === 'trace') {
       console.debug(`[WS] Flushed ${buffer.length} events to cache`)
     }
@@ -116,7 +165,9 @@ export function useWebSocket(sessionId: string | null) {
         // `hookName`) or the spec-canonical snake_case (`agent_id`,
         // `hook_name`) — accept both.
         const wire = msg.data
-        const sessionId = wire.sessionId ?? wire.session_id ?? sessionIdRef.current ?? ''
+        const subscribed = subscribedRef.current
+        const sessionId = resolveEventSessionId(wire.sessionId ?? wire.session_id, subscribed)
+        if (!sessionId) return
         const event: ParsedEvent = {
           id: wire.id,
           timestamp: wire.timestamp,
@@ -127,23 +178,24 @@ export function useWebSocket(sessionId: string | null) {
           cwd: wire.cwd ?? null,
           _meta: wire._meta ?? null,
         }
-        const currentSessionId = sessionIdRef.current
-        if (currentSessionId && event.sessionId === currentSessionId) {
-          eventBufferRef.current.push(event)
-          if (!flushTimerRef.current) {
-            // Adaptive flush interval: fast for small sessions, slower for large
-            // ones to avoid O(n) recomputation storms every 100ms on 10k+ events.
-            const cacheSize =
-              queryClient.getQueryData<ParsedEvent[]>(['events', currentSessionId])?.length ?? 0
-            const flushMs = cacheSize > 5000 ? 1000 : cacheSize > 1000 ? 500 : 100
-            flushTimerRef.current = setTimeout(() => {
-              flushTimerRef.current = undefined
-              flushEventBuffer()
-            }, flushMs)
+        eventBufferRef.current.push(event)
+        if (!flushTimerRef.current) {
+          // Adaptive flush interval: fast for small sessions, slower for large
+          // ones to avoid O(n) recomputation storms every 100ms on 10k+ events.
+          // The timer is shared, so size it for the largest subscribed session.
+          let cacheSize = 0
+          for (const id of subscribed) {
+            const size = queryClient.getQueryData<ParsedEvent[]>(['events', id])?.length ?? 0
+            if (size > cacheSize) cacheSize = size
           }
-          if (logLevel === 'trace') {
-            console.debug(`[WS] Event buffered: ${event.hookName}`)
-          }
+          const flushMs = cacheSize > 5000 ? 1000 : cacheSize > 1000 ? 500 : 100
+          flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = undefined
+            flushEventBuffer()
+          }, flushMs)
+        }
+        if (logLevel === 'trace') {
+          console.debug(`[WS] Event buffered: ${event.hookName} (${sessionId.slice(0, 8)})`)
         }
       } else if (msg.type === 'session_update') {
         queryClient.invalidateQueries({ queryKey: ['sessions'] })
@@ -219,12 +271,14 @@ export function useWebSocket(sessionId: string | null) {
         ws.onopen = () => {
           setConnected(true)
           console.log('[WS] Connected')
-          // Subscribe to current session on reconnect
-          const sid = sessionIdRef.current
-          if (sid) {
-            ws.send(JSON.stringify({ type: 'subscribe', sessionId: sid }))
+          // Re-send the current subscription list on (re)connect
+          const ids = [...subscribedRef.current]
+          if (ids.length > 0) {
+            ws.send(JSON.stringify({ type: 'subscribe', sessionIds: ids }))
             if (logLevel === 'debug' || logLevel === 'trace') {
-              console.log(`[WS] Subscribing to session ${sid.slice(0, 8)} (on connect)`)
+              console.log(
+                `[WS] Subscribing to sessions ${ids.map((id) => id.slice(0, 8)).join(', ')} (on connect)`,
+              )
             }
           }
         }

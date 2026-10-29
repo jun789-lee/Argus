@@ -163,7 +163,10 @@ export type WSMessage =
   | { type: 'filter:deleted'; id: string }
   | { type: 'filter:bulk-changed' }
 
-export type WSClientMessage = { type: 'subscribe'; sessionId: string } | { type: 'unsubscribe' }
+export type WSClientMessage =
+  | { type: 'subscribe'; sessionId: string }
+  | { type: 'subscribe'; sessionIds: string[] }
+  | { type: 'unsubscribe' }
 
 // === Filters (mirror server shape) ===
 
