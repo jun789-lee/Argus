@@ -10,6 +10,8 @@ import { TurnTreePanel, nodeMeta, nodeTitle, statusLabel } from './turn-tree-pan
 import { ConversationView, useOpenEventInLog } from './conversation-view'
 import { PlanView } from './plan-view'
 import { ResultView } from './result-view'
+import { SessionPlanCtx } from './session-plan-context'
+import { buildSessionPlanContext } from '@/lib/plan'
 
 /** The turn's final reply, as reported by its Stop / SubagentStop hook. */
 function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
@@ -91,57 +93,61 @@ export function PromptView({ sessionId }: { sessionId: string }) {
     [selected],
   )
 
+  const sessionPlan = useMemo(() => buildSessionPlanContext(roots), [roots])
+
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
-      <div className="w-80 shrink-0 overflow-y-auto border-r border-border">
-        <TurnTreePanel roots={roots} selectedId={selected?.id ?? null} onSelect={onSelect} />
+    <SessionPlanCtx.Provider value={sessionPlan}>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="w-80 shrink-0 overflow-y-auto border-r border-border">
+          <TurnTreePanel roots={roots} selectedId={selected?.id ?? null} onSelect={onSelect} />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {selected && <NodeHeader node={selected} following={pickedId === null} />}
+          {selected && selected.kind !== 'system' && (
+            <div className="flex shrink-0 gap-3 border-b border-border px-3 text-xs">
+              {tabs.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={cn(
+                    '-mb-px border-b-2 py-1.5 cursor-pointer transition-colors',
+                    tab === key
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {selected && selected.kind === 'subagent' && tab === 'result' ? (
+            <ResultView key={selected.id} node={selected} />
+          ) : selected && selected.kind === 'prompt' && tab === 'plan' ? (
+            <PlanView
+              key={selected.id}
+              sessionId={sessionId}
+              node={selected}
+              output={output}
+              onSelectNode={onSelect}
+            />
+          ) : selected && selected.kind !== 'system' && tab === 'conversation' ? (
+            <ConversationView
+              key={selected.id}
+              sessionId={sessionId}
+              node={selected}
+              output={output}
+              follow={pickedId === null || selected.endedAt === null}
+              onOpenEvent={openEventInLog}
+              onSelectNode={onSelect}
+            />
+          ) : (
+            <EventStream key={sessionId} onlyEventIds={eventIds} />
+          )}
+        </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {selected && <NodeHeader node={selected} following={pickedId === null} />}
-        {selected && selected.kind !== 'system' && (
-          <div className="flex shrink-0 gap-3 border-b border-border px-3 text-xs">
-            {tabs.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={cn(
-                  '-mb-px border-b-2 py-1.5 cursor-pointer transition-colors',
-                  tab === key
-                    ? 'border-primary text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-                onClick={() => setTab(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-        {selected && selected.kind === 'subagent' && tab === 'result' ? (
-          <ResultView key={selected.id} node={selected} />
-        ) : selected && selected.kind === 'prompt' && tab === 'plan' ? (
-          <PlanView
-            key={selected.id}
-            sessionId={sessionId}
-            node={selected}
-            output={output}
-            onSelectNode={onSelect}
-          />
-        ) : selected && selected.kind !== 'system' && tab === 'conversation' ? (
-          <ConversationView
-            key={selected.id}
-            sessionId={sessionId}
-            node={selected}
-            output={output}
-            follow={pickedId === null || selected.endedAt === null}
-            onOpenEvent={openEventInLog}
-            onSelectNode={onSelect}
-          />
-        ) : (
-          <EventStream key={sessionId} onlyEventIds={eventIds} />
-        )}
-      </div>
-    </div>
+    </SessionPlanCtx.Provider>
   )
 }
 

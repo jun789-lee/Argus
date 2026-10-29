@@ -424,6 +424,13 @@ export const ko: Record<string, string> = {
   'No recent activity': '최근 활동 없음',
   'Estimated from past runs': '지난 실행 기록으로 추정',
   'From the task list': '할 일 목록 기준',
+  'Plan not finished in this prompt — it continues in later prompts.':
+    '이 프롬프트에서 계획이 다 끝나지 않았어요. 이후 프롬프트에서 이어지고 있어요.',
+  'Continued from earlier prompts': '이전 프롬프트에서 이어서 한 작업',
+  'Plan not finished yet — remaining steps have not been picked up.':
+    '계획이 아직 다 끝나지 않았어요. 남은 단계는 아직 시작되지 않았어요.',
+  'Open the prompt that planned this step': '이 단계를 계획한 프롬프트 열기',
+  'original plan': '원래 계획',
   "Claude's to-do list tools are off in this session":
     '이 세션에서는 Claude의 할 일 목록 도구가 꺼져 있어요',
   'Newer models no longer get TaskCreate / TodoWrite by default, so plans are not recorded and steps fall back to replies.':

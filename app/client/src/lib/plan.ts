@@ -173,13 +173,101 @@ function stepAt(steps: PlanStep[], ts: number): number {
   return best
 }
 
+/**
+ * Session-wide task bookkeeping. Claude's task list lives for the whole
+ * session: a task created in one prompt is often updated or finished in a
+ * later one. With this context each task belongs to the node that created
+ * it, carries its latest status from anywhere in the session, and later
+ * prompts list it as continued work instead of an orphan step.
+ */
+export interface SessionPlanContext {
+  /** Every task's full lifecycle, keyed by task id. */
+  tasks: Map<string, PlanStep>
+  /** task id → id of the node (prompt or subagent) that created it. */
+  origin: Map<string, string>
+  /** task id → end of the prompt that last touched it (bounds open steps). */
+  windowCap: Map<string, number>
+  /** Main-agent events of every prompt, time-ordered (work attribution). */
+  mainEvents: TreeEvent[]
+  /** Every subagent in the session. */
+  subagents: TurnNode[]
+}
+
+function taskIdOf(e: TreeEvent): string | null {
+  const p = e.payload ?? {}
+  if (e.hookName === 'TaskCreated' || e.hookName === 'TaskCompleted') return str(p.task_id)
+  if (p.tool_name === 'TaskUpdate') return str((p.tool_input as Record<string, unknown>)?.taskId)
+  if (p.tool_name === 'TaskCreate' && e.hookName === 'PostToolUse') {
+    const r = (p.tool_response ?? {}) as Record<string, unknown>
+    return str(r.taskId) ?? str((r.task as Record<string, unknown> | undefined)?.id)
+  }
+  return null
+}
+
+export function buildSessionPlanContext(roots: TurnNode[]): SessionPlanContext {
+  const nodeOf = new Map<number, TurnNode>()
+  const all: TreeEvent[] = []
+  const mainEvents: TreeEvent[] = []
+  const subagents: TurnNode[] = []
+  const walk = (n: TurnNode) => {
+    for (const e of n.events) {
+      nodeOf.set(e.id, n)
+      all.push(e)
+      if (n.kind === 'prompt') mainEvents.push(e)
+    }
+    if (n.kind === 'subagent') subagents.push(n)
+    n.children.forEach(walk)
+  }
+  roots.forEach(walk)
+  const byTime = (a: TreeEvent, b: TreeEvent) => a.timestamp - b.timestamp || a.id - b.id
+  all.sort(byTime)
+  mainEvents.sort(byTime)
+
+  const tasks = new Map(fromTasks(all).map((s) => [s.id, s]))
+  const origin = new Map<string, string>()
+  const windowCap = new Map<string, number>()
+  for (const e of all) {
+    const id = taskIdOf(e)
+    const owner = nodeOf.get(e.id)
+    if (!id || !owner) continue
+    const creates =
+      e.hookName === 'TaskCreated' ||
+      (e.hookName === 'PostToolUse' && e.payload?.tool_name === 'TaskCreate')
+    // Creation wins; otherwise the first node to touch it (created before capture).
+    if (creates || !origin.has(id)) origin.set(id, owner.id)
+    windowCap.set(id, owner.endedAt ?? Infinity)
+  }
+  return { tasks, origin, windowCap, mainEvents, subagents }
+}
+
+export interface ContinuedTask {
+  step: PlanStep
+  /** Node that owns the task (open it to see the whole plan). */
+  originId: string
+}
+
 export function buildPlan(
   node: TurnNode,
   replies: Array<{ timestamp: number; text: string }> = [],
-): Plan {
+  session?: SessionPlanContext,
+): Plan & { continued: ContinuedTask[] } {
   const events = allEvents(node)
   let source: Plan['source'] = 'tasks'
-  let steps = fromTasks(events)
+  let continued: ContinuedTask[] = []
+  let steps: PlanStep[]
+  if (session) {
+    // Tasks this node created, with their status from the whole session.
+    steps = [...session.tasks.values()]
+      .filter((s) => session.origin.get(s.id) === node.id)
+      .map((s) => ({ ...s, subagents: [] }))
+    const touched = new Set(node.events.map(taskIdOf).filter((id): id is string => !!id))
+    continued = [...touched]
+      .filter((id) => session.origin.has(id) && session.origin.get(id) !== node.id)
+      .map((id) => ({ step: session.tasks.get(id)!, originId: session.origin.get(id)! }))
+      .filter((c) => c.step)
+  } else {
+    steps = fromTasks(events)
+  }
   if (steps.length === 0) {
     source = 'todos'
     steps = fromTodos(events)
@@ -191,18 +279,63 @@ export function buildPlan(
   if (steps.length === 0) source = 'none'
 
   const unassigned: Plan['unassigned'] = { toolCount: 0, errorCount: 0, subagents: [] }
-  // Main-agent tool calls only — a subagent's own tools count toward that subagent.
-  for (const e of node.events) {
-    const tool = e.payload?.tool_name
-    if (typeof tool === 'string' && TASK_TOOLS.has(tool)) continue
-    const i = stepAt(steps, e.timestamp)
-    const bucket = i === -1 ? unassigned : steps[i]
-    if (e.hookName === 'PreToolUse') bucket.toolCount++
-    if (e.hookName === 'PostToolUseFailure') bucket.errorCount++
-  }
-  for (const child of node.children) {
-    const i = stepAt(steps, child.startedAt)
-    ;(i === -1 ? unassigned : steps[i]).subagents.push(child)
+  const crossPrompt = !!session && source === 'tasks'
+  if (crossPrompt) {
+    // A task's work can happen in any prompt: count the session's main-agent
+    // tools and subagents inside each step's window. An unfinished step's
+    // window stops at the end of the prompt that last touched it, so a task
+    // left in_progress doesn't swallow everything after it.
+    const windows = steps.map((s) => ({
+      ...s,
+      endedAt: s.endedAt ?? session!.windowCap.get(s.id) ?? Infinity,
+    }))
+    const continuedWindows = continued.map((c) => ({
+      ...c.step,
+      endedAt: c.step.endedAt ?? session!.windowCap.get(c.step.id) ?? Infinity,
+    }))
+    const own = new Set(node.events.map((e) => e.id))
+    for (const e of session!.mainEvents) {
+      const tool = e.payload?.tool_name
+      if (typeof tool === 'string' && TASK_TOOLS.has(tool)) continue
+      const i = stepAt(windows, e.timestamp)
+      if (i !== -1) {
+        if (e.hookName === 'PreToolUse') steps[i].toolCount++
+        if (e.hookName === 'PostToolUseFailure') steps[i].errorCount++
+      } else if (own.has(e.id) && stepAt(continuedWindows, e.timestamp) === -1) {
+        if (e.hookName === 'PreToolUse') unassigned.toolCount++
+        if (e.hookName === 'PostToolUseFailure') unassigned.errorCount++
+      }
+    }
+    const ownChildren = new Set(node.children)
+    for (const sub of session!.subagents) {
+      const i = stepAt(windows, sub.startedAt)
+      if (i !== -1) steps[i].subagents.push(sub)
+      else if (ownChildren.has(sub) && stepAt(continuedWindows, sub.startedAt) === -1) {
+        unassigned.subagents.push(sub)
+      }
+    }
+  } else {
+    // Work inside a continued task's window belongs to that task's own plan.
+    const continuedWindows = continued.map((c) => ({
+      ...c.step,
+      endedAt: c.step.endedAt ?? session?.windowCap.get(c.step.id) ?? Infinity,
+    }))
+    const inContinued = (ts: number) => stepAt(continuedWindows, ts) !== -1
+    // Main-agent tool calls only — a subagent's own tools count toward that subagent.
+    for (const e of node.events) {
+      const tool = e.payload?.tool_name
+      if (typeof tool === 'string' && TASK_TOOLS.has(tool)) continue
+      const i = stepAt(steps, e.timestamp)
+      if (i === -1 && inContinued(e.timestamp)) continue
+      const bucket = i === -1 ? unassigned : steps[i]
+      if (e.hookName === 'PreToolUse') bucket.toolCount++
+      if (e.hookName === 'PostToolUseFailure') bucket.errorCount++
+    }
+    for (const child of node.children) {
+      const i = stepAt(steps, child.startedAt)
+      if (i === -1 && inContinued(child.startedAt)) continue
+      ;(i === -1 ? unassigned : steps[i]).subagents.push(child)
+    }
   }
 
   const completed = steps.filter((s) => s.status === 'completed').length
@@ -214,5 +347,6 @@ export function buildPlan(
     completed,
     total: steps.length,
     progress: known && steps.length > 0 ? completed / steps.length : null,
+    continued,
   }
 }

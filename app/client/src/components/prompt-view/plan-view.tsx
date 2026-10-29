@@ -8,6 +8,7 @@ import { formatDuration } from '@/components/settings/session-modal'
 import { useAssistantMessages } from './conversation-view'
 import { nodeTitle, statusLabel } from './turn-tree-panel'
 import { LivenessLine, ProgressBadge } from './subagent-progress'
+import { useSessionPlan } from './session-plan-context'
 import { stallThresholdMs } from '@/lib/eta'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -53,9 +54,16 @@ export function PlanView({
     queryFn: () => api.getToolAvailability(sessionId),
     staleTime: 60_000,
   })
-  const plan = useMemo(() => buildPlan(node, replies ?? []), [node, replies])
+  const session = useSessionPlan()
+  const plan = useMemo(() => buildPlan(node, replies ?? [], session), [node, replies, session])
 
   const running = node.endedAt === null
+  // The prompt's own turn is over but its plan isn't. If any step moved
+  // after the prompt ended, a later prompt is carrying it on.
+  const unfinished = !running && plan.progress !== null && plan.progress < 1
+  const continuedLater =
+    unfinished &&
+    plan.steps.some((s) => (s.startedAt ?? 0) > node.endedAt! || (s.endedAt ?? 0) > node.endedAt!)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!running) return
@@ -190,6 +198,45 @@ export function PlanView({
           </li>
         ))}
       </ol>
+
+      {unfinished && (
+        <div className="mt-2 flex items-center gap-1.5 px-2 text-[11px] text-blue-600 dark:text-blue-400">
+          <Info className="h-3.5 w-3.5 shrink-0" />
+          {continuedLater
+            ? t('Plan not finished in this prompt — it continues in later prompts.')
+            : t('Plan not finished yet — remaining steps have not been picked up.')}
+        </div>
+      )}
+
+      {plan.continued.length > 0 && (
+        <div className="mt-3">
+          <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+            {t('Continued from earlier prompts')}
+          </div>
+          <ul className="space-y-1">
+            {plan.continued.map(({ step, originId }) => (
+              <li key={step.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/70 px-2 py-1.5 text-left hover:bg-accent/40 cursor-pointer"
+                  onClick={() => onSelectNode(originId)}
+                  title={t('Open the prompt that planned this step')}
+                >
+                  <StepIcon status={step.status} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {step.status === 'in_progress' && step.activeForm
+                      ? step.activeForm
+                      : step.title}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    ↪ {t('original plan')}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {(plan.unassigned.toolCount > 0 || plan.unassigned.subagents.length > 0) &&
         plan.steps.length > 0 && (

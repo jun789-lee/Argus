@@ -3,6 +3,7 @@ import { Bot, ChevronDown, ChevronRight, MessageSquare, Settings2 } from 'lucide
 import type { TurnNode, TurnStatus } from '@/lib/turn-tree'
 import { buildPlan } from '@/lib/plan'
 import { ProgressBadge } from './subagent-progress'
+import { useSessionPlan } from './session-plan-context'
 import { formatDuration } from '@/components/settings/session-modal'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -53,7 +54,11 @@ export function nodeMeta(node: TurnNode, now: number): string {
 
 /** "3/4" for prompts whose plan comes from a real task list. */
 function PlanBadge({ node }: { node: TurnNode }) {
-  const plan = useMemo(() => (node.kind === 'prompt' ? buildPlan(node) : null), [node])
+  const session = useSessionPlan()
+  const plan = useMemo(
+    () => (node.kind === 'prompt' ? buildPlan(node, [], session) : null),
+    [node, session],
+  )
   if (!plan || plan.progress === null) return null
   return (
     <span

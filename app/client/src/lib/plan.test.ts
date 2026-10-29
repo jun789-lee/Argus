@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildPlan } from './plan'
+import { buildPlan, buildSessionPlanContext } from './plan'
 import type { TreeEvent, TurnNode } from './turn-tree'
 
 let id = 1
@@ -159,5 +159,66 @@ describe('buildPlan', () => {
 
   test('none when there is nothing to build from', () => {
     expect(buildPlan(prompt([])).source).toBe('none')
+  })
+})
+
+describe('plans across prompts (session context)', () => {
+  const S = 's'
+  const P = (
+    id: string,
+    startedAt: number,
+    endedAt: number | null,
+    events: TreeEvent[],
+  ): TurnNode => ({ ...prompt(events, [], endedAt), id, startedAt, promptIds: [id] })
+
+  // Prompt A plans 2 tasks and finishes #1; prompt B picks up #2 and finishes it.
+  const a = P('A', 0, 10, [
+    ...create(1, '1', 'Install WSL'),
+    ...create(2, '2', 'Measure grading time'),
+    update(3, '1', 'in_progress'),
+    ...tool(4),
+    update(5, '1', 'completed'),
+  ])
+  const b = P('B', 20, 40, [
+    update(21, '2', 'in_progress'),
+    ...tool(22),
+    ...tool(23),
+    update(30, '2', 'completed'),
+    ...tool(35),
+  ])
+  for (const n of [a, b]) n.events.forEach((e) => (e.agentId = S))
+  const session = buildSessionPlanContext([a, b])
+
+  test('the task stays in the prompt that planned it, with its latest status', () => {
+    const plan = buildPlan(a, [], session)
+    expect(plan.steps.map((s) => [s.title, s.status])).toEqual([
+      ['Install WSL', 'completed'],
+      ['Measure grading time', 'completed'],
+    ])
+    expect(plan).toMatchObject({ completed: 2, total: 2, progress: 1 })
+    // work done for #2 in prompt B counts toward #2
+    expect(plan.steps[1].toolCount).toBe(2)
+  })
+
+  test('the later prompt lists it as continued work, not an orphan step', () => {
+    const plan = buildPlan(b, [], session)
+    expect(plan.steps).toEqual([]) // B planned nothing itself
+    expect(plan.continued.map((c) => [c.step.title, c.originId])).toEqual([
+      ['Measure grading time', 'A'],
+    ])
+    expect(plan.unassigned.toolCount).toBe(1) // the tool at 35, after #2 finished
+  })
+
+  test('without session context the old per-prompt behaviour remains', () => {
+    const plan = buildPlan(b)
+    expect(plan.steps.map((s) => s.title)).toEqual(['2']) // the original "1. 4" bug
+  })
+
+  test('an in_progress task left open does not swallow later prompts', () => {
+    const c = P('C', 0, 10, [...create(1, '9', 'Never finished'), update(2, '9', 'in_progress')])
+    const d = P('D', 50, 60, [...tool(55)])
+    for (const n of [c, d]) n.events.forEach((e) => (e.agentId = S))
+    const ctx = buildSessionPlanContext([c, d])
+    expect(buildPlan(c, [], ctx).steps[0].toolCount).toBe(0) // window capped at C's end
   })
 })
