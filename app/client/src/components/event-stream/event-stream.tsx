@@ -8,6 +8,7 @@ import { usePermissionModeBackfill } from '@/hooks/use-permission-mode-backfill'
 import { getTimelineScrollTo, registerEventStreamScroll, withSyncLock } from '@/lib/scroll-sync'
 import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { EventRow } from './event-row'
 import { TimestampTooltipProvider } from './timestamp-tooltip'
 import { buildAgentColorMap } from '@/lib/agent-utils'
@@ -21,9 +22,8 @@ export function EventStream({
   /** Restrict the stream to these event ids (prompt view's selected node). */
   onlyEventIds?: ReadonlySet<number> | null
 } = {}) {
+  const { sessionId: selectedSessionId, selectedAgentIds, pane } = useSessionScope()
   const {
-    selectedSessionId,
-    selectedAgentIds,
     activePrimaryFilters,
     activeSecondaryFilters,
     searchQuery,
@@ -174,6 +174,9 @@ export function EventStream({
       }
       const container = scrollRef.current
       if (!container) return
+      // Two compare panes each run this listener; only the pane holding
+      // focus scrolls, so one keypress doesn't move both streams.
+      if (pane && !container.contains(document.activeElement)) return
 
       const toTop = (e.metaKey && e.key === 'ArrowUp') || e.key === 'Home'
       const toBottom = (e.metaKey && e.key === 'ArrowDown') || e.key === 'End'
@@ -196,7 +199,7 @@ export function EventStream({
     }
     window.addEventListener('keydown', handleKeydown)
     return () => window.removeEventListener('keydown', handleKeydown)
-  }, [])
+  }, [pane])
 
   const virtualizer = useVirtualizer({
     count: filteredEvents.length,

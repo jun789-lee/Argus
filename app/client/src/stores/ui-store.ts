@@ -10,6 +10,7 @@ import { ACTIVITY_CONFIG } from '@/config/activity'
 //   #/<proj>                → project view
 //   #/<proj>/<sess>         → session in a project
 //   #/_/<sess>              → session whose project is unknown/unassigned
+//   #/~compare/<a>/<b>      → two sessions side by side (compare view)
 //   …with an optional `:<view>` deep-link suffix.
 // Segment 0 is always the project, segment 1 (if present) the session — no
 // UUID/shape sniffing, so any agent's id format works. Every segment is
@@ -21,6 +22,18 @@ import { ACTIVITY_CONFIG } from '@/config/activity'
 // resolved project. NB: encodeURIComponent('_') === '_', so a project whose
 // slug were literally '_' could not be distinguished — server slugs never are.
 export const PROJECT_PLACEHOLDER = '_'
+
+// Reserved first segment for the compare view. '~' never appears in a
+// server-derived project slug, so it can't shadow a real project.
+export const COMPARE_SEGMENT = '~compare'
+/** The compare view shows exactly this many sessions side by side. */
+export const MAX_COMPARE_SESSIONS = 2
+
+function sameIds(a: readonly string[] | null, b: readonly string[] | null): boolean {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  return a.every((id, i) => id === b[i])
+}
 
 // decodeURIComponent throws on malformed input (a stray '%'); fall back to the
 // raw segment so a hand-mangled URL degrades instead of crashing the router.
@@ -55,9 +68,12 @@ export function buildHash(
   projectSlug: string | null,
   sessionId: string | null,
   view: string | null,
+  compareSessionIds: readonly string[] | null = null,
 ): string {
   let path = '/'
-  if (sessionId) {
+  if (compareSessionIds && compareSessionIds.length > 0) {
+    path = `/${COMPARE_SEGMENT}/${compareSessionIds.map(encodeURIComponent).join('/')}`
+  } else if (sessionId) {
     const proj = projectSlug ? encodeURIComponent(projectSlug) : PROJECT_PLACEHOLDER
     path = `/${proj}/${encodeURIComponent(sessionId)}`
   } else if (projectSlug) {
@@ -99,13 +115,18 @@ export function parseView(view: string): {
   return { scope: 'global', name: body, target }
 }
 
-function parseHash(): {
+interface ParsedHash {
   projectSlug: string | null
   sessionId: string | null
   view: string | null
-} {
+  /** Set only for the compare route; always MAX_COMPARE_SESSIONS ids. */
+  compareSessionIds: string[] | null
+}
+
+function parseHash(): ParsedHash {
   const hash = window.location.hash.slice(1)
-  if (!hash || hash === '/') return { projectSlug: null, sessionId: null, view: null }
+  if (!hash || hash === '/')
+    return { projectSlug: null, sessionId: null, view: null, compareSessionIds: null }
 
   // Strip the trailing :view suffix (only one `:` per URL by convention).
   let view: string | null = null
@@ -119,32 +140,55 @@ function parseHash(): {
     path = hash.slice(0, colonIdx)
   }
 
-  if (!path || path === '/') return { projectSlug: null, sessionId: null, view }
+  if (!path || path === '/')
+    return { projectSlug: null, sessionId: null, view, compareSessionIds: null }
   const parts = path.split('/').filter(Boolean).map(safeDecode)
+  if (parts[0] === COMPARE_SEGMENT) {
+    // Dedupe so `#/~compare/a/a` can't open a session against itself. With
+    // fewer than two distinct ids there's nothing to compare: one id opens
+    // that session normally, none goes home.
+    const ids = [...new Set(parts.slice(1))].slice(0, MAX_COMPARE_SESSIONS)
+    if (ids.length === MAX_COMPARE_SESSIONS) {
+      return { projectSlug: null, sessionId: null, view, compareSessionIds: ids }
+    }
+    return { projectSlug: null, sessionId: ids[0] ?? null, view, compareSessionIds: null }
+  }
   if (parts.length === 1) {
     // A bare placeholder (`#/_`) is meaningless — only the project slot of a
     // session URL uses it — so treat it as home.
-    if (parts[0] === PROJECT_PLACEHOLDER) return { projectSlug: null, sessionId: null, view }
-    return { projectSlug: parts[0], sessionId: null, view }
+    if (parts[0] === PROJECT_PLACEHOLDER)
+      return { projectSlug: null, sessionId: null, view, compareSessionIds: null }
+    return { projectSlug: parts[0], sessionId: null, view, compareSessionIds: null }
   }
   // 2+ segments: [project-or-placeholder, session]. The placeholder resolves
   // to a null project that useRouteSync fills in from the session.
   const projectSlug = parts[0] === PROJECT_PLACEHOLDER ? null : parts[0]
-  return { projectSlug, sessionId: parts[1], view }
+  return { projectSlug, sessionId: parts[1], view, compareSessionIds: null }
 }
 
 // When true, skip pushState (the URL is already correct from browser navigation)
 let suppressHashPush = false
 
-function updateHash(projectSlug: string | null, sessionId: string | null, view: string | null) {
+function updateHash(
+  projectSlug: string | null,
+  sessionId: string | null,
+  view: string | null,
+  compareSessionIds: readonly string[] | null = null,
+) {
   if (suppressHashPush) return
   // No-op guard: opening the same modal twice (or re-pushing the same URL
   // during a redundant set) would otherwise pollute the history stack. Compare
   // the parsed logical triple rather than raw strings — segments are encoded,
   // and the browser may normalize the stored hash differently than buildHash.
   const cur = parseHash()
-  if (cur.projectSlug === projectSlug && cur.sessionId === sessionId && cur.view === view) return
-  window.history.pushState(null, '', buildHash(projectSlug, sessionId, view))
+  if (
+    cur.projectSlug === projectSlug &&
+    cur.sessionId === sessionId &&
+    cur.view === view &&
+    sameIds(cur.compareSessionIds, compareSessionIds?.length ? compareSessionIds : null)
+  )
+    return
+  window.history.pushState(null, '', buildHash(projectSlug, sessionId, view, compareSessionIds))
 }
 
 interface SessionFilterState {
@@ -179,6 +223,18 @@ interface UIState {
    * this sets both at once with one `updateHash`.
    */
   openSession: (projectId: number | null, slug: string | null, sessionId: string) => void
+
+  // Compare view — two sessions side by side. `compareSessionIds` is the
+  // open view (mirrors the `#/~compare/a/b` URL); while it's set there is no
+  // selected session. `compareSelection` is the sidebar checkbox picks that
+  // haven't been opened yet.
+  compareSessionIds: string[] | null
+  compareSelection: string[]
+  toggleCompareSelection: (sessionId: string) => void
+  clearCompareSelection: () => void
+  openCompare: (sessionIds: string[]) => void
+  /** Close one pane; the other session opens as a normal session view. */
+  closeComparePane: (sessionId: string) => void
 
   // Preview selection — highlights a session (and expands its project) in
   // the sidebar WITHOUT navigating the main panel or touching the URL hash.
@@ -461,6 +517,7 @@ const {
   projectSlug: initialProjectSlug,
   sessionId: initialSessionId,
   view: initialView,
+  compareSessionIds: initialCompareSessionIds,
 } = parseHash()
 
 /**
@@ -514,6 +571,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       selectedProjectId: id,
       selectedProjectSlug: newSlug,
       selectedSessionId: null,
+      compareSessionIds: null,
       selectedAgentIds: [],
       expandedEventIds: new Set(),
       lastExpandedEventId: null,
@@ -549,6 +607,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     const exitingRewind = state.rewindMode && state.selectedSessionId !== id
     set({
       selectedSessionId: id,
+      compareSessionIds: null,
       selectedAgentIds: [],
       expandedEventIds: new Set(),
       lastExpandedEventId: null,
@@ -586,6 +645,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       selectedProjectId: projectId,
       selectedProjectSlug: newSlug,
       selectedSessionId: sessionId,
+      compareSessionIds: null,
       selectedAgentIds: [],
       expandedEventIds: new Set(),
       lastExpandedEventId: null,
@@ -604,6 +664,66 @@ export const useUIStore = create<UIState>((set, get) => ({
     const view = computeViewFromState(get())
     if (get().currentView !== view) set({ currentView: view })
     updateHash(newSlug, sessionId, view) // single history entry
+  },
+
+  compareSessionIds: initialCompareSessionIds,
+  compareSelection: [],
+  toggleCompareSelection: (sessionId) =>
+    set((s) => {
+      if (s.compareSelection.includes(sessionId)) {
+        return { compareSelection: s.compareSelection.filter((id) => id !== sessionId) }
+      }
+      if (s.compareSelection.length >= MAX_COMPARE_SESSIONS) return {}
+      return { compareSelection: [...s.compareSelection, sessionId] }
+    }),
+  clearCompareSelection: () => set({ compareSelection: [] }),
+  openCompare: (sessionIds) => {
+    const ids = [...new Set(sessionIds)].slice(0, MAX_COMPARE_SESSIONS)
+    if (ids.length !== MAX_COMPARE_SESSIONS) return
+    const state = get()
+    const nextFilterStates = new Map(state.sessionFilterStates)
+    // Save the outgoing session's filters; the compare view starts clean
+    // because its filters apply to both panes at once.
+    if (state.selectedSessionId) {
+      nextFilterStates.set(state.selectedSessionId, {
+        activePrimaryFilters: state.activePrimaryFilters,
+        activeSecondaryFilters: state.activeSecondaryFilters,
+        searchQuery: state.searchQuery,
+      })
+    }
+    set({
+      compareSessionIds: ids,
+      compareSelection: [],
+      selectedProjectId: null,
+      selectedProjectSlug: null,
+      selectedSessionId: null,
+      selectedAgentIds: [],
+      expandedEventIds: new Set(),
+      lastExpandedEventId: null,
+      selectedEventId: null,
+      scrollToEventId: null,
+      routeError: null,
+      sessionFilterStates: nextFilterStates,
+      activePrimaryFilters: DEFAULT_FILTER_STATE.activePrimaryFilters,
+      activeSecondaryFilters: DEFAULT_FILTER_STATE.activeSecondaryFilters,
+      searchQuery: DEFAULT_FILTER_STATE.searchQuery,
+      // Rewind freezes ONE session's events globally; leaving it on would
+      // show one session's frozen events in both panes.
+      ...(state.rewindMode && {
+        rewindMode: false,
+        frozenEvents: null,
+        autoFollow: state.autoFollowBeforeRewind,
+      }),
+    })
+    const view = computeViewFromState(get())
+    if (get().currentView !== view) set({ currentView: view })
+    updateHash(null, null, view, ids)
+  },
+  closeComparePane: (sessionId) => {
+    const remaining = get().compareSessionIds?.find((id) => id !== sessionId)
+    if (!remaining) return
+    // Project unknown here — useRouteSync resolves it from the session.
+    get().openSession(null, null, remaining)
   },
   updateProjectSlug: (slug) => {
     set({ selectedProjectSlug: slug })
@@ -694,14 +814,14 @@ export const useUIStore = create<UIState>((set, get) => ({
     const state = get()
     const view = computeViewFromState(state)
     if (state.currentView !== view) set({ currentView: view })
-    updateHash(state.selectedProjectSlug, state.selectedSessionId, view)
+    updateHash(state.selectedProjectSlug, state.selectedSessionId, view, state.compareSessionIds)
   },
 
   currentView: initialView,
   setCurrentView: (view) => {
     set({ currentView: view })
     const state = get()
-    updateHash(state.selectedProjectSlug, state.selectedSessionId, view)
+    updateHash(state.selectedProjectSlug, state.selectedSessionId, view, state.compareSessionIds)
   },
 
   routeError: null,
@@ -948,7 +1068,11 @@ if (typeof window !== 'undefined') {
   // For #/project/session, replace with the project view first, then push the
   // full URL — Back then drops to the project page. The :view suffix rides only
   // on the final URL, so Back peels off the modal before the session.
-  if (initialSessionId && initialProjectSlug) {
+  if (initialCompareSessionIds) {
+    // Compare view: Back returns to the dashboard.
+    window.history.replaceState(null, '', `#/`)
+    window.history.pushState(null, '', buildHash(null, null, initialView, initialCompareSessionIds))
+  } else if (initialSessionId && initialProjectSlug) {
     window.history.replaceState(null, '', buildHash(initialProjectSlug, null, null))
     window.history.pushState(null, '', buildHash(initialProjectSlug, initialSessionId, initialView))
   } else if (initialSessionId) {
@@ -962,12 +1086,22 @@ if (typeof window !== 'undefined') {
   }
 
   window.addEventListener('hashchange', () => {
-    const { projectSlug, sessionId, view } = parseHash()
+    const { projectSlug, sessionId, view, compareSessionIds } = parseHash()
     const state = useUIStore.getState()
     // Suppress pushState during browser-initiated navigation (back/forward)
     // — the URL is already correct, pushing would wipe the forward stack
     suppressHashPush = true
     try {
+      if (compareSessionIds) {
+        if (!sameIds(compareSessionIds, state.compareSessionIds)) {
+          state.openCompare(compareSessionIds)
+        }
+        if (view !== useUIStore.getState().currentView) {
+          useUIStore.setState({ currentView: view })
+        }
+        return
+      }
+      if (state.compareSessionIds) useUIStore.setState({ compareSessionIds: null })
       if (projectSlug !== state.selectedProjectSlug) {
         // Browser navigation is authoritative. When the URL carries no
         // project (Home `#/` or a session-only `#/id`), clear the resolved

@@ -646,4 +646,12 @@ export const ko: Record<string, string> = {
   'Open session →': '세션 열기 →',
   'recent events': '최근 이벤트',
   live: '실시간',
+
+  // ── Compare view ────────────────────────────────────────
+  Compare: '비교 보기',
+  'Select for compare': '비교할 세션으로 선택',
+  'You can compare up to {n} sessions': '최대 {n}개 세션까지 비교할 수 있습니다',
+  'Pick one more session to compare': '비교할 세션을 하나 더 고르세요',
+  'Compare pane {label}': '비교 창 {label}',
+  'Close this pane and open the other session': '이 창을 닫고 다른 세션만 보기',
 }

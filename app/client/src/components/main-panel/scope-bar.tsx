@@ -1,4 +1,5 @@
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { Button } from '@/components/ui/button'
 import { LogsModal } from './logs-modal'
 import { AgentCombobox } from './agent-combobox'
@@ -15,8 +16,8 @@ import { cn } from '@/lib/utils'
 import { t } from '@/lib/i18n'
 
 export function ScopeBar() {
+  const { sessionId: selectedSessionId, pane } = useSessionScope()
   const {
-    selectedSessionId,
     autoFollow,
     setAutoFollow,
     expandedEventIds,
@@ -78,26 +79,29 @@ export function ScopeBar() {
         >
           <ArrowDownToLine className="h-3.5 w-3.5" />
         </Button>
-        {/* Expand/Collapse */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => {
-            if (expandedEventIds.size > 0) {
-              collapseAllEvents()
-            } else {
-              requestExpandAll()
-            }
-          }}
-          title={expandedEventIds.size > 0 ? t('Collapse all') : t('Expand all')}
-        >
-          {expandedEventIds.size > 0 ? (
-            <ChevronsDownUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronsUpDown className="h-3.5 w-3.5" />
-          )}
-        </Button>
+        {/* Expand/Collapse — the expand-all signal is global, so a compare
+            pane hides it rather than expanding both panes at once. */}
+        {!pane && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => {
+              if (expandedEventIds.size > 0) {
+                collapseAllEvents()
+              } else {
+                requestExpandAll()
+              }
+            }}
+            title={expandedEventIds.size > 0 ? t('Collapse all') : t('Expand all')}
+          >
+            {expandedEventIds.size > 0 ? (
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
         {/* Logs */}
         <LogsModal />
         {/* Stats */}

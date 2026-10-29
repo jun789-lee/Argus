@@ -35,6 +35,7 @@
 import { useCallback, useRef, useMemo, useState, useEffect } from 'react'
 import { getRangeMs, TIME_RANGE_KEYS } from '@/config/time-ranges'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { useEffectiveEvents } from '@/hooks/use-effective-events'
 import { useAgents } from '@/hooks/use-agents'
 import { useProcessedEvents } from '@/agents/event-processing-context'
@@ -51,10 +52,9 @@ import { WaterfallView } from './waterfall-view'
 import { cn } from '@/lib/utils'
 
 export function ActivityTimeline() {
+  const { sessionId: selectedSessionId, selectedAgentIds, pane } = useSessionScope()
   const {
     selectedProjectId,
-    selectedSessionId,
-    selectedAgentIds,
     timelineHeight,
     timeRange,
     setTimelineHeight,
@@ -70,7 +70,8 @@ export function ActivityTimeline() {
   const [fit, setFit] = useState(false)
   const [compact, setCompact] = useState(false)
 
-  const { data: sessions } = useSessions(selectedProjectId)
+  // The project fallback only applies to the single-session view.
+  const { data: sessions } = useSessions(pane ? null : selectedProjectId)
   const effectiveSessionId = selectedSessionId || sessions?.[0]?.id || null
   const rawEvents = useEffectiveEvents(effectiveSessionId).data
   const agents = useAgents(effectiveSessionId, rawEvents)
@@ -279,7 +280,8 @@ export function ActivityTimeline() {
                 {tr('Compact')}
               </Button>
             )}
-            {!waterfall && (
+            {/* Rewind is single-session, lanes-only. */}
+            {!waterfall && !pane && (
               <Button
                 variant="outline"
                 size="sm"

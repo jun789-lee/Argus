@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useEvents } from '@/hooks/use-events'
 import { useAgents } from '@/hooks/use-agents'
-import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { getAgentDisplayName, buildAgentColorMap, getAgentColorById } from '@/lib/agent-utils'
 import { AgentLabel } from '@/components/shared/agent-label'
 import { AgentClassIcon, agentClassDisplayName } from '@/components/shared/agent-class-icon'
@@ -40,7 +40,12 @@ function formatStartTime(ts: number): string {
 }
 
 export function AgentCombobox() {
-  const { selectedSessionId, selectedAgentIds, toggleAgentId, setSelectedAgentIds } = useUIStore()
+  const {
+    sessionId: selectedSessionId,
+    selectedAgentIds,
+    toggleAgentId,
+    setSelectedAgentIds,
+  } = useSessionScope()
   const { data: events } = useEvents(selectedSessionId)
   const agents = useAgents(selectedSessionId, events)
   const [open, setOpen] = useState(false)

@@ -13,9 +13,14 @@ import { HomePage } from './home-page'
 import { ProjectPage } from './project-page'
 import { useRegionShortcuts } from '@/hooks/use-region-shortcuts'
 import { t } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
+import { SessionPaneProvider, COMPARE_PANE_STYLES } from './session-scope'
 
 export function MainPanel() {
   const { selectedProjectId, selectedProjectSlug, selectedSessionId, routeError } = useUIStore()
+  const compareSessionIds = useUIStore((s) => s.compareSessionIds)
+
+  if (compareSessionIds) return <CompareView sessionIds={compareSessionIds} />
 
   // A session route renders as soon as we know the session id — even with no
   // resolved (or no existing) project. Unassigned sessions have no project at
@@ -67,6 +72,40 @@ function SessionView({ sessionId, projectId }: { sessionId: string; projectId: n
   useRegionShortcuts()
   const { data: sessions } = useSessions(projectId)
   const effectiveSessionId = sessionId || sessions?.[0]?.id || null
+  return <SessionBody sessionId={sessionId} effectiveSessionId={effectiveSessionId} />
+}
+
+// Two sessions side by side. Each pane gets its own session scope (session
+// id + agent selection); filters, search and time range are shared. Region
+// keyboard shortcuts assume one session view, so they stay off here.
+function CompareView({ sessionIds }: { sessionIds: string[] }) {
+  return (
+    <div className="flex-1 flex min-w-0 overflow-hidden divide-x divide-border">
+      {sessionIds.map((id, index) => (
+        <div
+          key={id}
+          data-compare-pane={index}
+          className={cn(
+            'flex-1 min-w-0 flex flex-col overflow-hidden border-t-2',
+            COMPARE_PANE_STYLES[index]?.border,
+          )}
+        >
+          <SessionPaneProvider sessionId={id} index={index}>
+            <SessionBody sessionId={id} effectiveSessionId={id} />
+          </SessionPaneProvider>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SessionBody({
+  sessionId,
+  effectiveSessionId,
+}: {
+  sessionId: string
+  effectiveSessionId: string | null
+}) {
   const eventsQuery = useEffectiveEvents(effectiveSessionId)
   const rawEvents = eventsQuery.data
   const agents = useAgents(effectiveSessionId, rawEvents)
