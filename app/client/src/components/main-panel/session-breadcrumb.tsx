@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
 import { useEvents } from '@/hooks/use-events'
 import { CopyButton } from '@/components/shared/copy-button'
+import { CacheCountdown } from './cache-countdown'
 import { t } from '@/lib/i18n'
 
 export function SessionBreadcrumb() {
@@ -69,6 +70,7 @@ export function SessionBreadcrumb() {
           />
         </>
       )}
+      <CacheCountdown sessionId={selectedSessionId} eventCount={events?.length ?? 0} />
       {account && (
         <>
           <span className="opacity-30 mx-0.5">|</span>

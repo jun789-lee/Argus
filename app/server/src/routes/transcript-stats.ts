@@ -4,10 +4,36 @@ import type { EventStore } from '../storage/types'
 import { config } from '../config'
 import { resolveTranscriptPath } from '../services/transcript-path'
 import { parseSessionTranscripts } from '../transcript-parser'
+import { readCacheStatus } from '../services/cache-status'
 
 type Env = { Variables: { store: EventStore } }
 
 const router = new Hono<Env>()
+
+// Prompt-cache expiry estimate for the dashboard countdown. Cheap: reads
+// only the tail of the transcript in the common case.
+router.get('/sessions/:sessionId/cache-status', async (c) => {
+  if (!config.transcriptStats.enabled) {
+    return c.json({ error: 'disabled', message: 'Transcript parsing is disabled.' }, 404)
+  }
+  const store = c.get('store')
+  const hostPath = await store.getSessionTranscriptPath(c.req.param('sessionId'))
+  if (!hostPath) {
+    return c.json({ error: 'no_transcript', message: 'No transcript path found for session.' }, 404)
+  }
+  const resolved = resolveTranscriptPath(hostPath, config.transcriptStats.bases)
+  try {
+    return c.json(await readCacheStatus(resolved, config.transcriptStats.maxFileBytes), 200)
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return c.json({ error: 'file_not_found', message: 'Transcript file not found.' }, 404)
+    }
+    if (err?.code === 'EACCES') {
+      return c.json({ error: 'file_unreadable', message: err.message }, 403)
+    }
+    throw err
+  }
+})
 
 router.get('/sessions/:sessionId/transcript-stats', async (c) => {
   if (!config.transcriptStats.enabled) {

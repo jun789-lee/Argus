@@ -345,6 +345,15 @@ export const ko: Record<string, string> = {
   'Account:': '계정:',
   'Accounts:': '계정:',
   '+{n} more': '외 {n}개',
+  '1 hour': '1시간',
+  '5 minutes': '5분',
+  'Prompt cache TTL: {ttl}': '프롬프트 캐시 유지 시간: {ttl}',
+  'Last API response: {time}': '마지막 API 응답: {time}',
+  'Expires: {time}': '만료 예정: {time}',
+  'Estimated from the transcript; the next request resets the timer.':
+    'transcript 기준 추정치이며, 다음 요청을 보내면 다시 처음부터 계산됩니다.',
+  'Cache expired': '캐시 만료됨',
+  'Cache {time}': '캐시 {time}',
 
   // ── Token usage / pricing ───────────────────────────────
   Item: '항목',

@@ -9,6 +9,14 @@ import type {
   Filter,
 } from '@/types'
 
+export interface CacheStatus {
+  /** Timestamp (ms) of the last main-chain API response. */
+  lastRequestAt: number | null
+  /** TTL of the most recent cache write (1h or 5m), null when unknown. */
+  ttlMs: number | null
+  expiresAt: number | null
+}
+
 /**
  * Rich error thrown by all api.* methods on failure. Carries the HTTP status,
  * the server's error message (if it returned a JSON body with `message` or
@@ -251,6 +259,15 @@ export const api = {
       }
     }
     return { ok: true, status: 200, data: body as TranscriptStatsData }
+  },
+
+  /** Prompt-cache expiry estimate from the session transcript. Returns null
+   *  (rather than throwing, which would toast) when the session has no
+   *  readable transcript. */
+  getCacheStatus: async (sessionId: string): Promise<CacheStatus | null> => {
+    const res = await fetch(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/cache-status`)
+    if (!res.ok) return null
+    return (await res.json().catch(() => null)) as CacheStatus | null
   },
 
   /** Look up model pricing by id. Used by event-native agent classes (e.g.
