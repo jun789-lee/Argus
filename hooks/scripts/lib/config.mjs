@@ -259,6 +259,15 @@ export function getConfig(overrides = {}) {
     transcriptCodexHost:
       process.env.AGENTS_OBSERVE_TRANSCRIPT_CODEX_HOST_BASE || resolve(homeDir, '.codex/sessions'),
 
+    /**
+     * Claude Code's global config file, which records the logged-in
+     * account (`oauthAccount`). Lives inside CLAUDE_CONFIG_DIR when that
+     * is set, otherwise at ~/.claude.json.
+     */
+    claudeConfigFile: process.env.CLAUDE_CONFIG_DIR
+      ? resolve(process.env.CLAUDE_CONFIG_DIR, '.claude.json')
+      : resolve(homeDir, '.claude.json'),
+
     serverPortFile,
 
     installDir,

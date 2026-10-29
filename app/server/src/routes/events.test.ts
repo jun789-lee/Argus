@@ -525,3 +525,33 @@ describe('POST /api/events — background poll ticks', () => {
     expect(broadcast!.msg.data.agentId).toBe('sess-1:background')
   })
 })
+
+describe('POST /api/events — account tracking', () => {
+  const base = { agentClass: 'claude-code', sessionId: 'sess-acct', agentId: 'sess-acct' }
+
+  test('stores current account and history in session metadata', async () => {
+    await postEvent({
+      ...base,
+      hookName: 'SessionStart',
+      timestamp: 1000,
+      payload: {},
+      _meta: { account: { email: 'a@example.com', org: 'Org A' } },
+    })
+    await postEvent({ ...base, hookName: 'PreToolUse', timestamp: 1500, payload: { n: 1 } })
+    await postEvent({
+      ...base,
+      hookName: 'UserPromptSubmit',
+      timestamp: 2000,
+      payload: { prompt: 'hi' },
+      _meta: { account: { email: 'b@example.com' } },
+    })
+
+    const row = await store.getSessionById('sess-acct')
+    const meta = JSON.parse(row.metadata)
+    expect(meta.account).toEqual({ email: 'b@example.com' })
+    expect(meta.accounts).toEqual([
+      { email: 'a@example.com', org: 'Org A', firstSeen: 1000 },
+      { email: 'b@example.com', firstSeen: 2000 },
+    ])
+  })
+})

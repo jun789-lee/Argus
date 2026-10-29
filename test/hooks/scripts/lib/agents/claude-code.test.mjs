@@ -7,6 +7,7 @@ import {
   buildHookEvent,
   buildEnv,
   getSessionInfo,
+  readClaudeAccount,
 } from '../../../../../hooks/scripts/lib/agents/claude-code.mjs'
 
 function makeLog() {
@@ -251,6 +252,72 @@ describe('claude-code.buildHookEvent', () => {
       })
       expect(envelope.flags?.startsNotification).toBeUndefined()
     })
+  })
+})
+
+describe('claude-code account tagging', () => {
+  function writeClaudeConfig(obj) {
+    const dir = join(tmpdir(), `cc-account-${Date.now()}-${Math.random()}`)
+    mkdirSync(dir, { recursive: true })
+    const path = join(dir, '.claude.json')
+    writeFileSync(path, JSON.stringify(obj))
+    return { path, dir }
+  }
+
+  const oauthAccount = {
+    accountUuid: 'uuid-1',
+    emailAddress: 'me@example.com',
+    displayName: 'Me',
+    organizationName: 'My Org',
+    organizationType: 'claude_max',
+    billingType: 'stripe_subscription',
+  }
+
+  it('readClaudeAccount returns only identifying fields', () => {
+    const { path, dir } = writeClaudeConfig({ oauthAccount, userID: 'x' })
+    try {
+      expect(readClaudeAccount({ claudeConfigFile: path }, makeLog())).toEqual({
+        email: 'me@example.com',
+        name: 'Me',
+        org: 'My Org',
+        orgType: 'claude_max',
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('readClaudeAccount returns null when logged out or file missing', () => {
+    const { path, dir } = writeClaudeConfig({ userID: 'x' })
+    try {
+      expect(readClaudeAccount({ claudeConfigFile: path }, makeLog())).toBeNull()
+      expect(readClaudeAccount({ claudeConfigFile: join(dir, 'nope.json') }, makeLog())).toBeNull()
+      expect(readClaudeAccount({}, makeLog())).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('attaches _meta.account on SessionStart and UserPromptSubmit only', () => {
+    const { path, dir } = writeClaudeConfig({ oauthAccount })
+    const config = { claudeConfigFile: path, projectSlug: 'p' }
+    try {
+      for (const hook of ['SessionStart', 'UserPromptSubmit']) {
+        const { envelope } = buildHookEvent(config, makeLog(), {
+          hook_event_name: hook,
+          session_id: 's',
+        })
+        expect(envelope._meta.account.email).toBe('me@example.com')
+        expect(envelope._meta.project.slug).toBe('p') // existing hints kept
+      }
+      const { envelope } = buildHookEvent(config, makeLog(), {
+        hook_event_name: 'PreToolUse',
+        session_id: 's',
+      })
+      expect(envelope._meta.account).toBeUndefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

@@ -339,6 +339,12 @@ export const ko: Record<string, string> = {
   'Open "{name}" in Labels modal': '라벨 창에서 "{name}" 열기',
   'New label name...': '새 라벨 이름...',
   'Labels are saved in this browser only.': '라벨은 이 브라우저에만 저장됩니다.',
+  Account: '계정',
+  Accounts: '계정',
+  '(current)': '(현재)',
+  'Account:': '계정:',
+  'Accounts:': '계정:',
+  '+{n} more': '외 {n}개',
 
   // ── Token usage / pricing ───────────────────────────────
   Item: '항목',

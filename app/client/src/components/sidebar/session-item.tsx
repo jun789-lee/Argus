@@ -13,6 +13,7 @@ import {
 import { useSessionPulseActive } from '@/hooks/use-pulse-active'
 import type { Session } from '@/types'
 import { shortTimeAgo, useT } from '@/lib/i18n'
+import { getSessionAccounts } from '@/lib/session-account'
 
 interface SessionItemProps {
   session: Session
@@ -58,6 +59,7 @@ export function SessionItem({
   const inputRef = useRef<HTMLInputElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const t = useT()
+  const { all: accounts } = getSessionAccounts(session.metadata)
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -287,6 +289,12 @@ export function SessionItem({
                 </span>
               </span>
             ))}
+          </div>
+        )}
+        {accounts.length > 0 && (
+          <div className="truncate opacity-80">
+            {accounts.length > 1 ? t('Accounts:') : t('Account:')}{' '}
+            {accounts.map((a) => a.email).join(', ')}
           </div>
         )}
         <div className="opacity-80">

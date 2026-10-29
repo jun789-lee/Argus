@@ -33,7 +33,9 @@ import {
   Terminal,
   Shield,
   ExternalLink,
+  CircleUser,
 } from 'lucide-react'
+import { formatAccount, getSessionAccounts } from '@/lib/session-account'
 import { MoveSessionModal } from './project-modal'
 import { CollapsibleSection } from './sections/collapsible-section'
 import { TokenUsageSection } from './sections/token-usage-section'
@@ -104,6 +106,7 @@ export function SessionEditModal() {
       : typeof session?.metadata?.permissionMode === 'string'
         ? session.metadata.permissionMode
         : null
+  const { current: currentAccount, all: accounts } = getSessionAccounts(session?.metadata)
   const permFlag = permissionMode ? ` --permission-mode ${permissionMode}` : ''
   const resumeCmd = session ? `claude --resume ${session.id}${permFlag}` : null
   const forkCmd = session ? `claude --fork-session --resume ${session.id}${permFlag}` : null
@@ -326,6 +329,23 @@ export function SessionEditModal() {
               {permissionMode && (
                 <DetailRow icon={<Shield className="h-3.5 w-3.5" />} label={tr('Permissions')}>
                   <span>{permissionMode}</span>
+                </DetailRow>
+              )}
+              {accounts.length > 0 && (
+                <DetailRow
+                  icon={<CircleUser className="h-3.5 w-3.5" />}
+                  label={accounts.length > 1 ? tr('Accounts') : tr('Account')}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    {accounts.map((a) => (
+                      <span key={a.email} title={a.name}>
+                        {formatAccount(a)}
+                        {accounts.length > 1 && a.email === currentAccount?.email && (
+                          <span className="ml-1.5 text-muted-foreground">{tr('(current)')}</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
                 </DetailRow>
               )}
               <CopyRow

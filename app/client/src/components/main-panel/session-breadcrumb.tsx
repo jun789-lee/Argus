@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, Folder } from 'lucide-react'
+import { ChevronRight, CircleUser, Folder } from 'lucide-react'
+import { formatAccount, getSessionAccounts } from '@/lib/session-account'
 import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
 import { useEvents } from '@/hooks/use-events'
@@ -33,6 +34,7 @@ export function SessionBreadcrumb() {
   const projectName = session.projectSlug || session.projectName || t('Unassigned')
   const sessionName = session.slug || selectedSessionId.slice(0, 8)
   const transcriptPath = session.transcriptPath || null
+  const { current: account, all: accounts } = getSessionAccounts(session.metadata)
 
   return (
     <div className="group/breadcrumb flex items-center gap-1.5 px-3 py-1 border-b border-border text-xs text-muted-foreground min-h-[28px]">
@@ -65,6 +67,23 @@ export function SessionBreadcrumb() {
             icon={<Folder className="h-3 w-3 shrink-0" />}
             title={t('Click to copy: {text}', { text: cwd })}
           />
+        </>
+      )}
+      {account && (
+        <>
+          <span className="opacity-30 mx-0.5">|</span>
+          <span
+            className="flex items-center gap-1 truncate max-w-[220px]"
+            title={accounts.map(formatAccount).join('\n')}
+          >
+            <CircleUser className="h-3 w-3 shrink-0" />
+            <span className="truncate">{account.email}</span>
+            {accounts.length > 1 && (
+              <span className="shrink-0 opacity-60">
+                {t('+{n} more', { n: accounts.length - 1 })}
+              </span>
+            )}
+          </span>
         </>
       )}
       <button

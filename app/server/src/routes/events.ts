@@ -31,6 +31,7 @@ import {
 } from '../services/background-tick'
 import { config } from '../config'
 import { apiError } from '../errors'
+import { accountMetadataPatch } from '../services/session-account'
 
 type Env = {
   Variables: {
@@ -128,6 +129,17 @@ router.post('/events', async (c) => {
     // Re-read so we work with the post-upsert canonical row (slug,
     // start_cwd, transcript_path now fully populated).
     const session = await store.getSessionById(envelope.sessionId)
+
+    // Track the logged-in account (only writes when it changes).
+    const accountPatch = accountMetadataPatch(session?.metadata, envelope._meta?.account, timestamp)
+    if (accountPatch) {
+      // Metadata is merged with JSON merge-patch, which would keep stale
+      // keys from the previous account — null out the optional ones.
+      await store.patchSessionMetadata(envelope.sessionId, {
+        ...accountPatch,
+        account: { name: null, org: null, orgType: null, ...accountPatch.account },
+      })
+    }
 
     // ---- Step 3: project resolution --------------------------------------
     const resolvedProjectId = await resolveProject(store, {

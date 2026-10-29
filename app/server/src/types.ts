@@ -112,6 +112,14 @@ export interface EventEnvelopeFlags {
   resolveProject?: boolean
 }
 
+/** Logged-in Claude account, attached by the claude-code hook lib. */
+export interface EventEnvelopeAccount {
+  email: string
+  name?: string
+  org?: string
+  orgType?: string
+}
+
 export interface EventEnvelopeCreationHints {
   session?: {
     slug?: string | null
@@ -131,6 +139,8 @@ export interface EventEnvelopeCreationHints {
     description?: string | null
     type?: string | null
   }
+  /** Account the session is running under; tracked on every carrying event. */
+  account?: EventEnvelopeAccount
 }
 
 export interface EventEnvelope {

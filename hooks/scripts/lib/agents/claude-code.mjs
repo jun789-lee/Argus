@@ -12,6 +12,40 @@ import { defaultLib } from './default.mjs'
 const CLEARS_NOTIFICATION = new Set(['UserPromptSubmit'])
 // Hooks that mark the session as terminally stopped.
 const STOPS_SESSION = new Set(['SessionEnd'])
+// Hooks that carry the logged-in account. SessionStart covers new and
+// resumed sessions; UserPromptSubmit catches a mid-session `/login`.
+const CARRIES_ACCOUNT = new Set(['SessionStart', 'UserPromptSubmit'])
+
+/**
+ * Read the logged-in Claude account from Claude Code's config file.
+ * Only identifying fields are returned — credentials live in a separate
+ * file and are never touched. Returns null when not logged in (API key
+ * users) or the file can't be read.
+ *
+ * @param {object} config
+ * @param {object} log
+ * @returns {{ email: string, name?: string, org?: string, orgType?: string } | null}
+ */
+export function readClaudeAccount(config, log) {
+  if (!config?.claudeConfigFile) return null
+  let acct
+  try {
+    acct = JSON.parse(readFileSync(config.claudeConfigFile, 'utf8'))?.oauthAccount
+  } catch (err) {
+    log?.debug?.(
+      `claude-code.readClaudeAccount: cannot read ${config.claudeConfigFile}: ${err.message}`,
+    )
+    return null
+  }
+  if (!acct || typeof acct.emailAddress !== 'string' || !acct.emailAddress) return null
+  const account = { email: acct.emailAddress }
+  if (typeof acct.displayName === 'string' && acct.displayName) account.name = acct.displayName
+  if (typeof acct.organizationName === 'string' && acct.organizationName)
+    account.org = acct.organizationName
+  if (typeof acct.organizationType === 'string' && acct.organizationType)
+    account.orgType = acct.organizationType
+  return account
+}
 
 export function buildEnv(config) {
   return defaultLib.buildEnv(config)
@@ -38,6 +72,11 @@ export function buildHookEvent(config, log, payload) {
   if (hookName === 'SessionStart') flags.resolveProject = true
 
   if (Object.keys(flags).length > 0) result.envelope.flags = flags
+
+  if (CARRIES_ACCOUNT.has(hookName)) {
+    const account = readClaudeAccount(config, log)
+    if (account) result.envelope._meta = { ...result.envelope._meta, account }
+  }
   return result
 }
 
