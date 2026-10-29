@@ -163,7 +163,10 @@ export type WSMessage =
   | { type: 'project_update'; data: { id: number; name: string } }
 
 // Messages FROM clients
-export type WSClientMessage = { type: 'subscribe'; sessionId: string } | { type: 'unsubscribe' }
+export type WSClientMessage =
+  | { type: 'subscribe'; sessionId: string }
+  | { type: 'subscribe'; sessionIds: string[] }
+  | { type: 'unsubscribe' }
 
 // === Filter types ===
 

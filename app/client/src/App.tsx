@@ -12,7 +12,7 @@ import { useLangStore } from '@/lib/i18n'
 
 export function App() {
   const selectedSessionId = useUIStore((s) => s.selectedSessionId)
-  const { connected } = useWebSocket(selectedSessionId)
+  const { connected } = useWebSocket(selectedSessionId ? [selectedSessionId] : [])
   // Remount the UI tree on language change so plain (non-hook) t() calls
   // re-render everywhere without each component subscribing.
   const lang = useLangStore((s) => s.lang)

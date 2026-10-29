@@ -7,9 +7,38 @@ import { checkShutdown, cancelPendingShutdown } from './consumer-tracker'
 
 const LOG_LEVEL = config.logLevel
 
-// Track which session each client is subscribed to
-const clientSessions = new Map<WebSocket, string>()
+// Track which sessions each client is subscribed to. A client can watch
+// several sessions at once (e.g. a side-by-side compare view), so each
+// entry is a set; clients with nothing subscribed have no entry.
+const clientSessions = new Map<WebSocket, Set<string>>()
 const allClients = new Set<WebSocket>()
+
+/** Cap on sessions per client so a buggy or hostile client can't make
+ *  every broadcast scan an unbounded set. */
+export const MAX_SUBSCRIBED_SESSIONS = 20
+
+/** Pure: the full set of session ids a client should receive after this
+ *  message, or `null` when the message doesn't change subscriptions.
+ *  Subscriptions are declarative — each subscribe replaces the whole set,
+ *  so a dropped message can't leave client and server out of sync.
+ *  `{ sessionId }` (the original single-session form) means "just this one". */
+export function subscriptionFromMessage(msg: WSClientMessage): Set<string> | null {
+  if (msg.type === 'unsubscribe') return new Set()
+  if (msg.type !== 'subscribe') return null
+  if ('sessionIds' in msg && Array.isArray(msg.sessionIds)) {
+    const ids = msg.sessionIds.filter((id): id is string => typeof id === 'string' && id !== '')
+    return new Set(ids.slice(0, MAX_SUBSCRIBED_SESSIONS))
+  }
+  if ('sessionId' in msg && typeof msg.sessionId === 'string' && msg.sessionId !== '') {
+    return new Set([msg.sessionId])
+  }
+  return null
+}
+
+function describeSessions(ids: Set<string> | undefined): string {
+  if (!ids || ids.size === 0) return 'none'
+  return [...ids].map((id) => id.slice(0, 8)).join(', ')
+}
 
 export function attachWebSocket(server: Server) {
   const wss = new WebSocketServer({
@@ -37,19 +66,14 @@ export function attachWebSocket(server: Server) {
     ws.on('message', (raw) => {
       try {
         const msg: WSClientMessage = JSON.parse(raw.toString())
-        if (msg.type === 'subscribe' && msg.sessionId) {
+        const next = subscriptionFromMessage(msg)
+        if (next) {
           const prev = clientSessions.get(ws)
-          clientSessions.set(ws, msg.sessionId)
-          if (LOG_LEVEL === 'debug' || LOG_LEVEL === 'trace') {
-            const prevInfo = prev ? ` (was: ${prev.slice(0, 8)})` : ''
-            console.log(`[WS] Client subscribed to session ${msg.sessionId.slice(0, 8)}${prevInfo}`)
-          }
-        } else if (msg.type === 'unsubscribe') {
-          const prev = clientSessions.get(ws)
-          clientSessions.delete(ws)
+          if (next.size > 0) clientSessions.set(ws, next)
+          else clientSessions.delete(ws)
           if (LOG_LEVEL === 'debug' || LOG_LEVEL === 'trace') {
             console.log(
-              `[WS] Client unsubscribed${prev ? ` from session ${prev.slice(0, 8)}` : ''}`,
+              `[WS] Client subscribed to sessions [${describeSessions(next)}] (was: [${describeSessions(prev)}])`,
             )
           }
         }
@@ -75,8 +99,8 @@ export function attachWebSocket(server: Server) {
 /** Send a message only to clients subscribed to a specific session */
 export function broadcastToSession(sessionId: string, message: object): void {
   const json = JSON.stringify(message)
-  for (const [client, subSessionId] of clientSessions) {
-    if (subSessionId === sessionId && client.readyState === WebSocket.OPEN) {
+  for (const [client, subscribed] of clientSessions) {
+    if (subscribed.has(sessionId) && client.readyState === WebSocket.OPEN) {
       try {
         client.send(json)
       } catch {
