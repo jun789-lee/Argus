@@ -62,7 +62,8 @@ export function subscriptionKey(sessionIds: readonly string[]): string {
   return [...new Set(sessionIds.filter(Boolean))].sort().join('\n')
 }
 
-function idsFromKey(key: string): string[] {
+/** Inverse of `subscriptionKey`. */
+export function idsFromKey(key: string): string[] {
   return key === '' ? [] : key.split('\n')
 }
 

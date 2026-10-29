@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Pin, SquarePen } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentClassIcon, agentClassDisplayName } from '@/components/shared/agent-class-icon'
 import {
@@ -14,6 +15,8 @@ import { useSessionPulseActive } from '@/hooks/use-pulse-active'
 import type { Session } from '@/types'
 import { shortTimeAgo, useT } from '@/lib/i18n'
 import { getSessionAccounts } from '@/lib/session-account'
+import { useUIStore, MAX_COMPARE_SESSIONS } from '@/stores/ui-store'
+import { COMPARE_PANE_STYLES } from '@/components/main-panel/session-scope'
 
 interface SessionItemProps {
   session: Session
@@ -60,6 +63,12 @@ export function SessionItem({
   const rowRef = useRef<HTMLDivElement>(null)
   const t = useT()
   const { all: accounts } = getSessionAccounts(session.metadata)
+  const compareChecked = useUIStore((s) => s.compareSelection.includes(session.id))
+  const compareFull = useUIStore((s) => s.compareSelection.length >= MAX_COMPARE_SESSIONS)
+  const toggleCompareSelection = useUIStore((s) => s.toggleCompareSelection)
+  // Which compare pane (A/B) shows this session right now, if any.
+  const comparePane = useUIStore((s) => s.compareSessionIds?.indexOf(session.id) ?? -1)
+  const comparePaneStyle = comparePane >= 0 ? COMPARE_PANE_STYLES[comparePane] : null
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -203,6 +212,16 @@ export function SessionItem({
                 />
               </span>
             )}
+            {comparePaneStyle && (
+              <span
+                className={cn(
+                  'shrink-0 rounded px-1 text-[9px] font-semibold leading-tight',
+                  comparePaneStyle.badge,
+                )}
+              >
+                {comparePaneStyle.label}
+              </span>
+            )}
             {isEditing ? (
               <input
                 ref={inputRef}
@@ -261,6 +280,27 @@ export function SessionItem({
                     startEditing(e)
                   }
                 }}
+              />
+            )}
+            {!isEditing && (
+              <Checkbox
+                checked={compareChecked}
+                disabled={!compareChecked && compareFull}
+                onCheckedChange={() => toggleCompareSelection(session.id)}
+                // The row itself is a button; keep the checkbox from also
+                // opening the session.
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                aria-label={t('Select for compare')}
+                title={
+                  !compareChecked && compareFull
+                    ? t('You can compare up to {n} sessions', { n: MAX_COMPARE_SESSIONS })
+                    : t('Select for compare')
+                }
+                className={cn(
+                  'h-3.5 w-3.5 rounded-[3px] border-muted-foreground/60',
+                  compareChecked ? 'flex' : 'hidden group-hover:flex',
+                )}
               />
             )}
           </div>

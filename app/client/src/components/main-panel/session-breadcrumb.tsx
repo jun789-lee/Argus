@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, CircleUser, Folder } from 'lucide-react'
+import { ChevronRight, CircleUser, Folder, X } from 'lucide-react'
 import { formatAccount, getSessionAccounts } from '@/lib/session-account'
 import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope, COMPARE_PANE_STYLES } from './session-scope'
 import { useEvents } from '@/hooks/use-events'
 import { CopyButton } from '@/components/shared/copy-button'
 import { CacheCountdown } from './cache-countdown'
 import { t } from '@/lib/i18n'
 
 export function SessionBreadcrumb() {
-  const { selectedSessionId, selectedProjectId, setSelectedSessionId, dedupEnabled, openSettings } =
-    useUIStore()
+  const { selectedProjectId, setSelectedSessionId, dedupEnabled, openSettings } = useUIStore()
+  const closeComparePane = useUIStore((s) => s.closeComparePane)
+  const { sessionId: selectedSessionId, pane } = useSessionScope()
+  const paneStyle = pane ? COMPARE_PANE_STYLES[pane.index] : null
 
   const { data: session } = useQuery({
     queryKey: ['session', selectedSessionId],
@@ -39,13 +42,27 @@ export function SessionBreadcrumb() {
 
   return (
     <div className="group/breadcrumb flex items-center gap-1.5 px-3 py-1 border-b border-border text-xs text-muted-foreground min-h-[28px]">
-      <button
-        className="hover:text-foreground transition-colors cursor-pointer truncate max-w-[150px]"
-        onClick={() => setSelectedSessionId(null)}
-        title={hasProject ? t('Back to {name}', { name: projectName }) : t('Back to dashboard')}
-      >
-        {projectName}
-      </button>
+      {paneStyle && (
+        <span
+          className={`shrink-0 rounded px-1.5 text-[10px] font-semibold ${paneStyle.badge}`}
+          title={t('Compare pane {label}', { label: paneStyle.label })}
+        >
+          {paneStyle.label}
+        </span>
+      )}
+      {pane ? (
+        // In a compare pane the project is just context; leaving goes
+        // through the pane's close button instead.
+        <span className="truncate max-w-[150px]">{projectName}</span>
+      ) : (
+        <button
+          className="hover:text-foreground transition-colors cursor-pointer truncate max-w-[150px]"
+          onClick={() => setSelectedSessionId(null)}
+          title={hasProject ? t('Back to {name}', { name: projectName }) : t('Back to dashboard')}
+        >
+          {projectName}
+        </button>
+      )}
       <ChevronRight className="h-3 w-3 shrink-0 opacity-50" />
       {transcriptPath ? (
         <CopyButton
@@ -99,6 +116,15 @@ export function SessionBreadcrumb() {
       >
         {dedupEnabled ? t('Dedup Events') : t('Raw Events')}
       </button>
+      {pane && (
+        <button
+          className="shrink-0 rounded p-0.5 hover:bg-accent hover:text-foreground cursor-pointer"
+          onClick={() => closeComparePane(selectedSessionId)}
+          title={t('Close this pane and open the other session')}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }

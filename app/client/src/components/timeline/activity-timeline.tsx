@@ -35,6 +35,7 @@
 import { useCallback, useRef, useMemo, useState, useEffect } from 'react'
 import { getRangeMs, TIME_RANGE_KEYS } from '@/config/time-ranges'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { useEffectiveEvents } from '@/hooks/use-effective-events'
 import { useAgents } from '@/hooks/use-agents'
 import { useProcessedEvents } from '@/agents/event-processing-context'
@@ -49,10 +50,9 @@ import type { EnrichedEvent } from '@/agents/types'
 import { t as tr } from '@/lib/i18n'
 
 export function ActivityTimeline() {
+  const { sessionId: selectedSessionId, selectedAgentIds, pane } = useSessionScope()
   const {
     selectedProjectId,
-    selectedSessionId,
-    selectedAgentIds,
     timelineHeight,
     timeRange,
     setTimelineHeight,
@@ -63,7 +63,8 @@ export function ActivityTimeline() {
     exitRewindMode,
   } = useUIStore()
 
-  const { data: sessions } = useSessions(selectedProjectId)
+  // The project fallback only applies to the single-session view.
+  const { data: sessions } = useSessions(pane ? null : selectedProjectId)
   const effectiveSessionId = selectedSessionId || sessions?.[0]?.id || null
   const rawEvents = useEffectiveEvents(effectiveSessionId).data
   const agents = useAgents(effectiveSessionId, rawEvents)
@@ -230,27 +231,29 @@ export function ActivityTimeline() {
               }}
               className="text-muted-foreground"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              className={
-                rewindMode
-                  ? 'h-5 px-2 text-[10px] mr-1 border-orange-500/70 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10'
-                  : 'h-5 px-2 text-[10px] mr-1 border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
-              }
-              onClick={handleToggleRewind}
-              title={rewindMode ? tr('Resume live view') : tr('Pause and rewind')}
-            >
-              {rewindMode ? (
-                <>
-                  <Rewind className="h-2.5 w-2.5 mr-0.5" /> {tr('Rewind')}
-                </>
-              ) : (
-                <>
-                  <Play className="h-2.5 w-2.5 mr-0.5" /> {tr('Live')}
-                </>
-              )}
-            </Button>
+            {!pane && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={
+                  rewindMode
+                    ? 'h-5 px-2 text-[10px] mr-1 border-orange-500/70 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10'
+                    : 'h-5 px-2 text-[10px] mr-1 border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+                }
+                onClick={handleToggleRewind}
+                title={rewindMode ? tr('Resume live view') : tr('Pause and rewind')}
+              >
+                {rewindMode ? (
+                  <>
+                    <Rewind className="h-2.5 w-2.5 mr-0.5" /> {tr('Rewind')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-2.5 w-2.5 mr-0.5" /> {tr('Live')}
+                  </>
+                )}
+              </Button>
+            )}
             {ranges.map((r) => (
               <Button
                 key={r}

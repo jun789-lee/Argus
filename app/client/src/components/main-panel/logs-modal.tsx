@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useTransition, useMemo, useCallback, memo } from 'react'
 import { useEvents } from '@/hooks/use-events'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -205,7 +206,7 @@ const LogsRow = memo(function LogsRow({
 })
 
 export function LogsModal() {
-  const { selectedSessionId } = useUIStore()
+  const { sessionId: selectedSessionId } = useSessionScope()
   const setScrollToEventId = useUIStore((s) => s.setScrollToEventId)
   const { data: events } = useEvents(selectedSessionId)
   const [copiedId, setCopiedId] = useState<number | null>(null)

@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Sidebar } from '@/components/sidebar/sidebar'
 import { MainPanel } from '@/components/main-panel/main-panel'
 import { SessionEditModal } from '@/components/settings/session-modal'
-import { useWebSocket } from '@/hooks/use-websocket'
+import { useWebSocket, subscriptionKey, idsFromKey } from '@/hooks/use-websocket'
 import { useRouteSync } from '@/hooks/use-route-sync'
 import { useUIStore } from '@/stores/ui-store'
 import { useNotificationsController } from '@/components/sidebar/notification-indicator'
@@ -12,7 +12,11 @@ import { useLangStore } from '@/lib/i18n'
 
 export function App() {
   const selectedSessionId = useUIStore((s) => s.selectedSessionId)
-  const { connected } = useWebSocket(selectedSessionId ? [selectedSessionId] : [])
+  const compareSessionIds = useUIStore((s) => s.compareSessionIds)
+  // Sessions on screen: both compare panes, or the one selected session.
+  const visibleSessionIds = compareSessionIds ?? (selectedSessionId ? [selectedSessionId] : [])
+  const visibleKey = subscriptionKey(visibleSessionIds)
+  const { connected } = useWebSocket(visibleSessionIds)
   // Remount the UI tree on language change so plain (non-hook) t() calls
   // re-render everywhere without each component subscribing.
   const lang = useLangStore((s) => s.lang)
@@ -25,15 +29,18 @@ export function App() {
   // memory until the default gcTime expires, and rapid session switching
   // could accumulate multiple full sessions in memory.
   const queryClient = useQueryClient()
-  const prevSessionIdRef = useRef<string | null>(selectedSessionId)
+  // Only sessions that left the screen are dropped — opening a compare view
+  // from session A keeps A's data, since A is still on screen in a pane.
+  const prevVisibleKeyRef = useRef(visibleKey)
   useEffect(() => {
-    const prev = prevSessionIdRef.current
-    if (prev && prev !== selectedSessionId) {
-      queryClient.removeQueries({ queryKey: ['events', prev] })
-      queryClient.removeQueries({ queryKey: ['agents', prev] })
+    const visible = new Set(idsFromKey(visibleKey))
+    for (const id of idsFromKey(prevVisibleKeyRef.current)) {
+      if (visible.has(id)) continue
+      queryClient.removeQueries({ queryKey: ['events', id] })
+      queryClient.removeQueries({ queryKey: ['agents', id] })
     }
-    prevSessionIdRef.current = selectedSessionId
-  }, [selectedSessionId, queryClient])
+    prevVisibleKeyRef.current = visibleKey
+  }, [visibleKey, queryClient])
 
   return (
     <ThemeProvider>

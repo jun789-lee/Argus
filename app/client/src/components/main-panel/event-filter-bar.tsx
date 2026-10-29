@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/ui-store'
+import { useSessionScope } from '@/components/main-panel/session-scope'
 import { useFilterStore } from '@/stores/filter-store'
 import { useProcessedEvents } from '@/agents/event-processing-context'
 import { cn } from '@/lib/utils'
@@ -17,8 +18,8 @@ export function EventFilterBar() {
     clearAllFilters,
     searchQuery,
     setSearchQuery,
-    selectedAgentIds,
   } = useUIStore()
+  const { selectedAgentIds } = useSessionScope()
 
   // Local input state for responsive typing; debounce before updating the store
   const [localSearch, setLocalSearch] = useState(searchQuery)
