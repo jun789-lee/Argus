@@ -413,7 +413,9 @@ Claude Code에서 루프를 돌리는 방법은 여러 가지다(보고서 "Clau
 - **러너**는 Argus 저장소 안의 새 Node 프로그램(`app/loop-runner/`)이다. 터미널에서 `argus-loop run <루프 이름>`으로 시작한다.
 - **작업자 세션**은 기존 hook을 그대로 통해 Argus에 기록된다. 러너가 `--session-id`로 세션 ID를 미리 정해 주므로, "반복 7번 = 세션 X"가 정확히 연결된다. 덕분에 Argus의 기존 세션 화면과 비교 화면을 그대로 쓸 수 있다.
 - **Argus 서버가 꺼져 있어도 루프는 돈다.** 진실의 원본은 러너가 쓰는 `journal.jsonl`이고, Argus는 그것을 보여 주는 거울이다. 이 경우 사람 확인 요청은 러너의 터미널에서 묻는다.
-- **작업자 세션이 물려받는 설정:** `claude -p`는 기본적으로 사용자 설정(`~/.claude/settings.json`)의 hook과 권한을 그대로 쓴다. 그러면 Argus 기록 hook뿐 아니라 **루프와 상관없는 다른 hook**(예: 프롬프트마다 "작업 목록을 만들라"는 안내를 붙이는 hook)도 작업자에게 영향을 준다. M1에서 `--setting-sources`와 `--settings`로 **Argus 기록 hook + 루프용 권한만** 주는 구성을 만들고, 그래도 Argus에 기록되는지 확인한다(§16).
+- **작업자 세션이 물려받는 설정 (2026-10-29 확인):** `claude -p`는 사용자 설정(`~/.claude/settings.json`)의 hook과 env를 그대로 쓴다. Argus 기록 hook은 그대로 두고, 루프와 상관없는 **계획 안내 문구**(`AGENTS_OBSERVE_PLAN_NUDGE=1`)만 끈다. 끄는 방법은 실측으로 정했다.
+  - 작업자 프로세스 환경에 `AGENTS_OBSERVE_PLAN_NUDGE=0`을 주는 것은 **효과가 없다**. settings.json의 env가 덮어쓴다.
+  - `--settings '{"env":{"AGENTS_OBSERVE_PLAN_NUDGE":"0"}}'` 플래그는 **효과가 있다**. 러너는 이 방식을 쓴다(`ml-improve` 클래스 기본값 `worker.settingsEnv`, 스펙의 `worker.env`로 추가·변경 가능).
 
 ### 6.2 한 번의 실행 흐름
 
@@ -786,9 +788,9 @@ on_exit: { return: best, keep_top: 3 }
 |---|---|
 | `claude -p`의 `--session-id`, `--settings`, `--json-schema`, `--max-budget-usd`, `--permission-mode`, `--allowedTools` 존재 | **확인됨** (로컬 2.1.312 `--help`) |
 | `--max-turns` 없음 | **확인됨** (같은 출처) |
-| `--output-format json`의 결과에 비용(`total_cost_usd`)·턴 수가 포함되는지, 구독 사용 시에도 비용이 계산되는지 | **미확인** → M1에서 실측 |
+| `--output-format json`의 결과에 비용(`total_cost_usd`)·턴 수가 포함되는지, 구독 사용 시에도 비용이 계산되는지 | **확인됨** (2026-10-29): `total_cost_usd`, `num_turns`, `subtype`, `is_error`가 있고 구독에서도 비용이 계산된다. `--json-schema`의 결과는 `structured_output`에 들어온다. `--session-id`로 준 ID가 그대로 쓰인다 |
 | `--max-budget-usd`가 구독 사용 시에도 작동하는지 | **미확인** → M1에서 실측 (작동 안 하면 시간 상한과 반복 상한으로만 통제) |
 | `bypassPermissions` 모드에서도 `--disallowedTools` 차단이 작동하는지 | **미확인** → M1에서 확인. 작동하지 않으면 PreToolUse hook으로 해당 명령을 막는다 |
-| `claude -p` 세션에서도 사용자 설정의 hook이 실행되어 Argus에 기록되는지, `--setting-sources`로 다른 hook을 뺐을 때도 기록되는지 | **미확인** → M1에서 확인 |
+| `claude -p` 세션에서도 사용자 설정의 hook이 실행되어 Argus에 기록되는지 | **확인됨** (2026-10-29): 기록된다(SessionStart~SessionEnd 8개 이벤트). 계획 안내만 `--settings` env로 끄고 hook은 그대로 둔다(§6.1) |
 | 새 대회의 반복 1회 소요 시간(채점 시간), 결정성, 대회 규칙(제출 한도·최종 제출 선택 방식) | **미확인** → M4 첫 작업 |
 | 보고서의 미검증 주장 17개 | 보고서 "인용 전 확인이 필요한 주장들" 표 참고. 이 설계의 기본값은 검증된 근거(Self-Refine, CRITIC, METR, ImpossibleBench, AIRA, MLE-STAR, Ladder)를 우선 사용 |
