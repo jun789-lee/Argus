@@ -54,6 +54,15 @@ export interface AgentPatch {
   agent_type?: string | null
 }
 
+/** A finished subagent run, for duration / ETA statistics. */
+export interface SubagentRun {
+  agentId: string
+  agentType: string | null
+  startedAt: number
+  durationMs: number
+  tools: number
+}
+
 export interface EventStore {
   createProject(slug: string, name: string): Promise<number>
   getProjectById(id: number): Promise<any | null>
@@ -135,6 +144,8 @@ export interface EventStore {
   clearAllData(): Promise<{ projects: number; sessions: number; agents: number; events: number }>
   clearSessionEvents(sessionId: string): Promise<{ events: number; agents: number }>
   getDbStats(): Promise<{ sessionCount: number; eventCount: number }>
+  /** Finished subagent runs across all sessions, newest first. */
+  getSubagentRuns(limit?: number): Promise<SubagentRun[]>
   vacuum(): Promise<void>
   /** Recent sessions, newest activity first. When `since` (epoch ms) is
    *  given, only sessions whose last activity is at or after it are returned

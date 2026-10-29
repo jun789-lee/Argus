@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronDown, ChevronRight, MessageSquare, Settings2 } from 'lucide-react'
 import type { TurnNode, TurnStatus } from '@/lib/turn-tree'
 import { buildPlan } from '@/lib/plan'
+import { ProgressBadge } from './subagent-progress'
 import { formatDuration } from '@/components/settings/session-modal'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -162,6 +163,9 @@ function Row({
               {nodeMeta(node, now)}
             </span>
             <PlanBadge node={node} />
+            {node.kind === 'subagent' && node.endedAt === null && (
+              <ProgressBadge node={node} now={now} />
+            )}
           </div>
         </div>
       </div>

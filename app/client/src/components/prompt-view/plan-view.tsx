@@ -5,6 +5,8 @@ import type { TurnNode } from '@/lib/turn-tree'
 import { formatDuration } from '@/components/settings/session-modal'
 import { useAssistantMessages } from './conversation-view'
 import { nodeTitle, statusLabel } from './turn-tree-panel'
+import { LivenessLine, ProgressBadge } from './subagent-progress'
+import { stallThresholdMs } from '@/lib/eta'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -88,6 +90,16 @@ export function PlanView({
         </div>
       </div>
 
+      {running && (
+        <div className="mb-3">
+          <LivenessLine
+            node={node}
+            now={now}
+            stalled={now - node.lastEventAt > stallThresholdMs(null)}
+          />
+        </div>
+      )}
+
       {plan.source !== 'tasks' && plan.source !== 'todos' && (
         <div className="mb-3 flex gap-1.5 rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground">
           <Info className="mt-px h-3.5 w-3.5 shrink-0" />
@@ -136,7 +148,12 @@ export function PlanView({
                       </span>
                     )}
                     {step.subagents.map((sub) => (
-                      <SubagentChip key={sub.id} node={sub} onClick={() => onSelectNode(sub.id)} />
+                      <SubagentChip
+                        key={sub.id}
+                        node={sub}
+                        now={now}
+                        onClick={() => onSelectNode(sub.id)}
+                      />
                     ))}
                   </div>
                 )}
@@ -156,7 +173,12 @@ export function PlanView({
                 ` · ${t('{n} tools', { n: plan.unassigned.toolCount })}`}
             </span>
             {plan.unassigned.subagents.map((sub) => (
-              <SubagentChip key={sub.id} node={sub} onClick={() => onSelectNode(sub.id)} />
+              <SubagentChip
+                key={sub.id}
+                node={sub}
+                now={now}
+                onClick={() => onSelectNode(sub.id)}
+              />
             ))}
           </div>
         )}
@@ -164,7 +186,15 @@ export function PlanView({
   )
 }
 
-function SubagentChip({ node, onClick }: { node: TurnNode; onClick: () => void }) {
+function SubagentChip({
+  node,
+  now,
+  onClick,
+}: {
+  node: TurnNode
+  now: number
+  onClick: () => void
+}) {
   const done = node.status === 'done'
   return (
     <button
@@ -175,6 +205,7 @@ function SubagentChip({ node, onClick }: { node: TurnNode; onClick: () => void }
     >
       <Bot className="h-3 w-3 shrink-0" />
       <span className="truncate">{node.agentType ?? nodeTitle(node)}</span>
+      {node.endedAt === null && <ProgressBadge node={node} now={now} />}
       <span
         className={cn(
           'h-1.5 w-1.5 shrink-0 rounded-full',

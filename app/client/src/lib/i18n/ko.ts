@@ -408,6 +408,22 @@ export const ko: Record<string, string> = {
   'View result': '결과 보기',
   '{n} tokens': '토큰 {n}',
   'Subagent result': '서브에이전트 결과',
+
+  // ── Progress / ETA / liveness ───────────────────────────
+  overdue: '평소보다 오래',
+  '{time} ago': '{time} 전',
+  'Plan {done}/{total} steps': '계획 {total}단계 중 {done}단계',
+  'Running longer than usual (typically {typical})': '평소보다 오래 걸리고 있어요 (보통 {typical})',
+  'Estimate · about {left} left · typical {typical}': '추정 · 약 {left} 남음 · 보통 {typical}',
+  'Not enough history to estimate yet': '아직 추정할 만큼 기록이 쌓이지 않았어요',
+  'based on {n} past {type} runs': '지난 {type} 실행 {n}번 기준',
+  'based on {n} past subagent runs': '지난 서브에이전트 실행 {n}번 기준',
+  'No activity for {time}': '{time}째 활동 없음',
+  'Now: {what}': '지금: {what}',
+  'Starting…': '시작하는 중…',
+  'No recent activity': '최근 활동 없음',
+  'Estimated from past runs': '지난 실행 기록으로 추정',
+  'From the task list': '할 일 목록 기준',
   'This subagent finished without a recorded result.':
     '이 서브에이전트는 기록된 결과 없이 끝났어요.',
   'Still working — the result appears here when the subagent finishes.':

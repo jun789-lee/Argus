@@ -16,6 +16,7 @@ import type {
   EventFilters,
   StoredEvent,
   OrphanRepairResult,
+  SubagentRun,
 } from './types'
 import { DuplicateEventSignatureError } from './types'
 import type { Filter, FilterRow, FilterPattern } from '../types'
@@ -1327,6 +1328,50 @@ export class SqliteAdapter implements EventStore {
       return { events, agents, sessions }
     })
     return tx(sessionIds)
+  }
+
+  async getSubagentRuns(limit = 2000): Promise<SubagentRun[]> {
+    // One row per finished subagent: its own events give start, tool count
+    // and type; it finished at its SubagentStop (logged by the parent, naming
+    // it in payload.agent_id) or its task-notification, whichever came first.
+    return this.db
+      .prepare(
+        `
+      WITH runs AS (
+        SELECT e.agent_id AS agentId,
+          MIN(e.timestamp) AS startedAt,
+          SUM(e.hook_name = 'PreToolUse') AS tools,
+          MAX(CASE WHEN e.hook_name = 'SubagentStart'
+                   THEN json_extract(e.payload, '$.agent_type') END) AS agentType,
+          MIN(e.session_id) AS sessionId
+        FROM events e
+        WHERE e.agent_id NOT LIKE e.session_id || '%'
+        GROUP BY e.agent_id
+      )
+      SELECT r.agentId, r.startedAt, r.tools, r.agentType,
+        MIN(
+          COALESCE((SELECT MIN(s.timestamp) FROM events s
+                    WHERE s.session_id = r.sessionId AND s.hook_name = 'SubagentStop'
+                      AND json_extract(s.payload, '$.agent_id') = r.agentId), 9e15),
+          COALESCE((SELECT MIN(n.timestamp) FROM events n
+                    WHERE n.session_id = r.sessionId AND n.hook_name = 'UserPromptSubmit'
+                      AND json_extract(n.payload, '$.prompt')
+                          LIKE '%<task-id>' || r.agentId || '</task-id>%'), 9e15)
+        ) AS endedAt
+      FROM runs r
+      ORDER BY r.startedAt DESC
+      LIMIT ?
+    `,
+      )
+      .all(limit)
+      .filter((r: any) => r.endedAt < 9e15 && r.endedAt >= r.startedAt)
+      .map((r: any) => ({
+        agentId: r.agentId,
+        agentType: r.agentType || null,
+        startedAt: r.startedAt,
+        durationMs: r.endedAt - r.startedAt,
+        tools: r.tools ?? 0,
+      }))
   }
 
   async getDbStats(): Promise<{ sessionCount: number; eventCount: number }> {

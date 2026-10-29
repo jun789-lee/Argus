@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
+import { SubagentProgress } from './subagent-progress'
 import type { TurnNode } from '@/lib/turn-tree'
 import { formatDuration } from '@/components/settings/session-modal'
 import { MarkdownText } from './conversation-view'
@@ -15,6 +17,12 @@ import { cn } from '@/lib/utils'
 export function ResultView({ node }: { node: TurnNode }) {
   const done = node.endedAt !== null
   const failed = node.status === 'failed'
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (done) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [done])
   const usage = node.usage
   const stats = [
     usage?.durationMs != null
@@ -41,6 +49,7 @@ export function ResultView({ node }: { node: TurnNode }) {
         <span className="font-medium">{statusLabel(node.status)}</span>
         <span className="text-muted-foreground tabular-nums">· {stats.join(' · ')}</span>
       </div>
+      {!done && <SubagentProgress node={node} now={now} />}
       {node.result ? (
         <div
           className={cn(

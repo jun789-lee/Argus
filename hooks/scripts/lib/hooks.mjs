@@ -93,8 +93,8 @@ function readStdin() {
  * Parse stdin JSON, build envelope, POST to server synchronously.
  * Returns { result, envelope } — does NOT use fireAndForget.
  */
-async function sendHookSync(config, log) {
-  const input = await readStdin()
+async function sendHookSync(config, log, preread) {
+  const input = preread ?? (await readStdin())
   if (!input) return { result: null, envelope: null }
 
   let hookPayload
@@ -187,25 +187,42 @@ export const PLAN_NUDGE_CONTEXT = [
   "task's subject. Skip the task list for simple one-step requests.",
 ].join(' ')
 
+/** Same idea for a subagent, scoped to its own task. */
+export const SUBAGENT_PLAN_NUDGE_CONTEXT = [
+  '[Argus plan tracking] If your task needs 3 or more distinct steps and you have a task tool',
+  '(TaskCreate or TodoWrite), keep a short task list for your own task: one task per step,',
+  'marked in_progress when you start it and completed when it is done. Skip it for quick lookups.',
+].join(' ')
+
+const NUDGE_BY_HOOK = {
+  UserPromptSubmit: PLAN_NUDGE_CONTEXT,
+  SubagentStart: SUBAGENT_PLAN_NUDGE_CONTEXT,
+}
+
 /**
- * hook-prompt: UserPromptSubmit handler. Prints the optional plan-tracking
- * context for Claude first (so the prompt isn't held up by the server),
- * then posts the event like `hook`.
+ * hook-prompt: handler for UserPromptSubmit and SubagentStart. Prints the
+ * optional plan-tracking context first (so Claude isn't held up by the
+ * server), then posts the event like `hook`.
  */
 export async function hookPromptCommand(config, log) {
   muteConsole()
-  if (config.planNudge) {
+  const input = await readStdin()
+  let hookName = null
+  try {
+    hookName = input ? JSON.parse(input)?.hook_event_name : null
+  } catch {
+    // malformed payload — sendHookSync logs it
+  }
+  const context = NUDGE_BY_HOOK[hookName]
+  if (config.planNudge && context) {
     process.stdout.write(
       JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'UserPromptSubmit',
-          additionalContext: PLAN_NUDGE_CONTEXT,
-        },
+        hookSpecificOutput: { hookEventName: hookName, additionalContext: context },
       }) + '\n',
     )
   }
   try {
-    const { result } = await sendHookSync(config, log)
+    const { result } = await sendHookSync(config, log, input)
     if (result?.body?.requests) {
       await handleCallbackRequests(result.body.requests, { config, log })
     }

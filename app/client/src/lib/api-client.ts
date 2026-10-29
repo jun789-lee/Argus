@@ -266,6 +266,14 @@ export const api = {
     return { ok: true, status: 200, data: body as TranscriptStatsData }
   },
 
+  /** Durations of finished subagents by type, for ETA estimates. */
+  getSubagentRunStats: () =>
+    fetchJson<{
+      byType: Record<string, { durationsMs: number[]; tools: number[] }>
+      all: { durationsMs: number[]; tools: number[] }
+      total: number
+    }>('/stats/subagent-runs'),
+
   /** Claude's text replies for one prompt (main chain) or one subagent,
    *  from the transcript. Null when the transcript isn't readable. */
   getAssistantMessages: async (
