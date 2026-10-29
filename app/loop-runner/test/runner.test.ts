@@ -138,24 +138,36 @@ describe('runLoop', { timeout: 120_000 }, () => {
     expect(evs().find((e) => e.type === 'gate')).toMatchObject({ kind: 'start', decision: 'continue', by: 'terminal' })
   })
 
-  it('resumes a run whose grader broke mid-way', async () => {
+  it('resumes a run whose grader broke mid-way by re-scoring the committed candidate', async () => {
     const sb = sandbox({ maxIterations: 3 })
-    sb.scenario([{ set: 90 }, { set: 999 }, { set: 70 }])
-    let runId = ''
-    await expect(
-      run(sb.loopHome, {
-        log: (l) => {
-          const m = /^run (\S+):/.exec(l)
-          if (m) runId = m[1]
-        },
-      }),
-    ).rejects.toThrow(/printed no verdict JSON/)
-    expect(runId).not.toBe('')
-    // The journal holds iteration 1; iteration 2 never finished. Fix the step and resume.
     sb.scenario([{ set: 90 }, { set: 80 }, { set: 70 }])
+    process.env.FAKE_GRADER_BREAK_AT = '80' // the grader can't score iteration 2's candidate
+    let runId = ''
+    try {
+      await expect(
+        run(sb.loopHome, {
+          log: (l) => {
+            const m = /^run (\S+):/.exec(l)
+            if (m) runId = m[1]
+          },
+        }),
+      ).rejects.toThrow(/printed no verdict JSON/)
+    } finally {
+      delete process.env.FAKE_GRADER_BREAK_AT
+    }
+    const evs = () => journal.read(join(sb.loopHome, 'runs', runId, 'journal.jsonl'))
+    expect(journal.pendingCandidate(evs(), 2)).toMatchObject({ n: 2, operator: 'improve' })
+
+    // If the worker ran again it would write 10; the resumed run must score the saved 80 instead.
+    sb.scenario([{ set: 90 }, { set: 10 }, { set: 70 }])
     const sum = await run(sb.loopHome, { resumeRunId: runId })
     expect(sum.runId).toBe(runId)
-    expect(verdicts(sum.runDir)).toEqual(['accepted', 'accepted', 'accepted'])
-    expect(sum.best.value).toBe(70)
+    const its = journal.iterations(evs())
+    expect(its.map((i) => [i.n, i.verdict, i.scored?.value])).toEqual([
+      [1, 'accepted', 90],
+      [2, 'accepted', 80],
+      [3, 'accepted', 70],
+    ])
+    expect(its[1].costUsd).toBe(0.01) // the interrupted attempt's cost is kept, not paid twice
   })
 })

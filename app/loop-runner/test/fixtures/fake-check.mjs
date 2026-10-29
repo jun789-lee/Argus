@@ -2,6 +2,7 @@
 // <candidate>/src/value.txt (lower is better). Special values:
 //   not a number  -> the candidate is broken (ok: false)
 //   999           -> the grader itself breaks (prints no verdict JSON)
+//   $FAKE_GRADER_BREAK_AT -> same, while that env var names the value (lets a test fix it)
 //   a file src/sealed_fail in the candidate -> the sealed check fails
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,7 +22,7 @@ try {
 const value = Number(text)
 if (!Number.isFinite(value)) {
   out({ ok: false, metrics: {}, message: `could not parse "${text}"` })
-} else if (value === 999) {
+} else if (value === 999 || String(value) === process.env.FAKE_GRADER_BREAK_AT) {
   console.log('grader crashed')
 } else if (mode === 'sealed') {
   const failed = existsSync(join(candidate, 'src', 'sealed_fail'))

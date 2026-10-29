@@ -284,24 +284,39 @@ async function runWithLock(
     if (reason) return finish(reason)
 
     const n = state.iterationsDone + 1
-    const operator = nextOperator(state)
-    const startCommit = await head(worktree)
-    const sessionId = opts.fakeWorker ? null : randomUUID()
-    const history = journal.iterations(journal.read(journalPath))
-    const prompt = buildPrompt(runSpec, state, baseline.value, history, operator)
-    saveLog(`iter-${n}-prompt.md`, prompt)
-    log(`#${n} ${operator}: worker started${sessionId ? ` (session ${sessionId})` : ''}`)
-
-    const t0 = Date.now()
-    const w = await runWorker(runSpec, prompt, {
-      cwd: worktree,
-      sessionId: sessionId ?? 'fake',
-      operator,
-      iteration: n,
-      fakeWorker: opts.fakeWorker,
-    })
-    saveLog(`iter-${n}-worker.txt`, w.raw)
-    if (sessionId) void labelSession(sessionId, `loop:${runSpec.name} #${runId}-${n}`)
+    const allEvents = journal.read(journalPath)
+    const pending = journal.pendingCandidate(allEvents, n)
+    const operator = pending?.operator ?? nextOperator(state)
+    let startCommit: string
+    let sessionId: string | null
+    let w: { report: journal.CandidateEvent['report']; exit: string; costUsd: number; timedOut: boolean }
+    let t0: number
+    if (pending) {
+      // The last run stopped while scoring this candidate: score it, don't redo the work.
+      log(`#${n} ${operator}: re-scoring the committed candidate ${pending.commit.slice(0, 8)} from the interrupted run`)
+      await resetTo(worktree, pending.commit)
+      startCommit = pending.startCommit
+      sessionId = pending.sessionId
+      w = { report: pending.report, exit: pending.workerExit, costUsd: pending.costUsd, timedOut: false }
+      t0 = Date.now() - pending.workerMs
+    } else {
+      startCommit = await head(worktree)
+      sessionId = opts.fakeWorker ? null : randomUUID()
+      const prompt = buildPrompt(runSpec, state, baseline.value, journal.iterations(allEvents), operator)
+      saveLog(`iter-${n}-prompt.md`, prompt)
+      log(`#${n} ${operator}: worker started${sessionId ? ` (session ${sessionId})` : ''}`)
+      t0 = Date.now()
+      const res = await runWorker(runSpec, prompt, {
+        cwd: worktree,
+        sessionId: sessionId ?? 'fake',
+        operator,
+        iteration: n,
+        fakeWorker: opts.fakeWorker,
+      })
+      saveLog(`iter-${n}-worker.txt`, res.raw)
+      if (sessionId) void labelSession(sessionId, `loop:${runSpec.name} #${runId}-${n}`)
+      w = res
+    }
 
     let verdict: Verdict
     let feedback: string
@@ -328,6 +343,10 @@ async function runWithLock(
       verdict = 'rejected'
       feedback = 'Paused for a human: ' + (w.report.needs_human_reason ?? '')
       alert = `The worker asked for a human: ${w.report.needs_human_reason ?? '(no reason given)'}`
+    } else if (pending) {
+      files = pending.changedFiles
+      commit = pending.commit
+      ;({ verdict, feedback, error, judgement, scored } = await evaluate(n, commit, checks))
     } else {
       files = await changedFiles(worktree, startCommit)
       const review = reviewChanges(files, runSpec.workspace.editable, runSpec.workspace.protected)
@@ -343,6 +362,19 @@ async function runWithLock(
         feedback = `Rejected: only files matching ${runSpec.workspace.editable.join(', ')} may be changed.`
       } else {
         commit = await commitAll(worktree, `loop ${runSpec.name} #${n} (${operator}): ${w.report?.hypothesis ?? ''}`.slice(0, 200))
+        journal.append(journalPath, {
+          type: 'candidate',
+          n,
+          operator,
+          sessionId,
+          startCommit,
+          commit,
+          report: w.report,
+          workerExit: w.exit,
+          changedFiles: files,
+          costUsd: w.costUsd,
+          workerMs: Date.now() - t0,
+        })
         ;({ verdict, feedback, error, judgement, scored } = await evaluate(n, commit, checks))
       }
     }

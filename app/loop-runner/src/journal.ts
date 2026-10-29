@@ -51,6 +51,24 @@ export interface IterationEvent {
   costUsd: number
   durationMs: number
 }
+/** Written right after a candidate is committed and before it is scored, so a run that
+ *  stops while scoring (a grader that can't start, a crash) resumes by re-scoring this
+ *  commit instead of asking a worker to redo the attempt. */
+export interface CandidateEvent {
+  type: 'candidate'
+  n: number
+  operator: 'improve' | 'debug'
+  sessionId: string | null
+  startCommit: string
+  commit: string
+  report: WorkerReport | null
+  workerExit: string
+  changedFiles: string[]
+  costUsd: number
+  workerMs: number
+  /** Set when the event was reconstructed by hand from the logs. */
+  note?: string
+}
 export interface RunFinishedEvent {
   type: 'run_finished'
   reason: TerminalReason
@@ -64,6 +82,7 @@ export type JournalEvent = (
   | CalibrationEvent
   | GateEvent
   | IterationEvent
+  | CandidateEvent
   | RunFinishedEvent
 ) & { t?: string }
 
@@ -77,6 +96,13 @@ export function read(path: string): JournalEvent[] {
     .split(/\r?\n/)
     .filter(Boolean)
     .map((l) => JSON.parse(l) as JournalEvent)
+}
+
+/** The candidate of iteration `n` if it was committed but never scored. */
+export function pendingCandidate(events: JournalEvent[], n: number): CandidateEvent | null {
+  if (events.some((e) => e.type === 'iteration' && e.n === n)) return null
+  const c = events.filter((e): e is CandidateEvent & { t?: string } => e.type === 'candidate' && e.n === n).at(-1)
+  return c ?? null
 }
 
 export function iterations(events: JournalEvent[]): IterationEvent[] {

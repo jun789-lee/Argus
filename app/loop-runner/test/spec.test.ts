@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { checkEnv } from '../src/checks'
 import { expandSpec, parseDuration } from '../src/spec'
 
 const base = {
@@ -97,5 +98,15 @@ describe('expandSpec (ml-improve class)', () => {
 
   it('only knows the ml-improve class', () => {
     expect(expandSpec({ ...base, class: 'other' }).errors.join('\n')).toMatch(/class: must be "ml-improve"/)
+  })
+})
+
+describe('checkEnv', () => {
+  it.runIf(process.platform === 'win32')('puts System32 on PATH when a shell left it out', () => {
+    const env = checkEnv({ Path: 'C:\\tools;C:\\Git\\bin', SystemRoot: 'C:\\Windows' })
+    expect(env.Path!.split(';')[0]).toBe('C:\\Windows\\System32')
+    // Already present (any case, trailing slash): left alone.
+    const kept = checkEnv({ Path: 'c:\\windows\\system32\\;C:\\tools', SystemRoot: 'C:\\Windows' })
+    expect(kept.Path).toBe('c:\\windows\\system32\\;C:\\tools')
   })
 })
