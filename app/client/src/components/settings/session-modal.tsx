@@ -40,16 +40,9 @@ import { TokenUsageSection } from './sections/token-usage-section'
 import { useAgents } from '@/hooks/use-agents'
 import { getStatsProvider } from './stats'
 import type { Project, ParsedEvent } from '@/types'
+import { t as tr, shortTimeAgo } from '@/lib/i18n'
 
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+const formatRelativeTime = shortTimeAgo
 
 function formatAbsoluteTime(ts: number): string {
   return new Date(ts).toLocaleString()
@@ -231,7 +224,7 @@ export function SessionEditModal() {
                   className="flex-1 min-w-0 truncate cursor-pointer hover:underline"
                   onClick={startRenaming}
                 >
-                  {label || 'Loading...'}
+                  {label || tr('Loading...')}
                 </DialogTitle>
                 <Button
                   variant="ghost"
@@ -239,7 +232,7 @@ export function SessionEditModal() {
                   className="shrink-0"
                   onClick={startRenaming}
                   disabled={!session}
-                  title="Rename session"
+                  title={tr('Rename session')}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -262,14 +255,14 @@ export function SessionEditModal() {
                       closeSettings()
                     }}
                     className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground cursor-pointer"
-                    title="Open session (cmd/ctrl-click for new tab)"
-                    aria-label="Open session"
+                    title={tr('Open session (cmd/ctrl-click for new tab)')}
+                    aria-label={tr('Open session')}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 )}
                 <DialogClose asChild>
-                  <Button variant="ghost" size="icon-xs" className="shrink-0" title="Close">
+                  <Button variant="ghost" size="icon-xs" className="shrink-0" title={tr('Close')}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </DialogClose>
@@ -287,7 +280,7 @@ export function SessionEditModal() {
                     : 'bg-muted-foreground/60 dark:bg-muted-foreground/40'
                 }`}
               />
-              <span>{session.status === 'active' ? 'Active' : 'Ended'}</span>
+              <span>{session.status === 'active' ? tr('Active') : tr('Ended')}</span>
               {session.projectName && (
                 <>
                   <span>·</span>
@@ -311,7 +304,7 @@ export function SessionEditModal() {
                   }`}
                   onClick={() => setActiveTab(tab)}
                 >
-                  {tab === 'details' ? 'Details' : tab === 'stats' ? 'Stats' : 'Labels'}
+                  {tab === 'details' ? tr('Details') : tab === 'stats' ? tr('Stats') : tr('Labels')}
                 </button>
               ))}
             </div>
@@ -323,7 +316,7 @@ export function SessionEditModal() {
               {cwd && (
                 <CopyRow
                   icon={<Folder className="h-3.5 w-3.5" />}
-                  label="Working dir"
+                  label={tr('Working dir')}
                   value={cwd}
                   display={shortenCwd(cwd)}
                   copied={copiedField === 'cwd'}
@@ -331,13 +324,13 @@ export function SessionEditModal() {
                 />
               )}
               {permissionMode && (
-                <DetailRow icon={<Shield className="h-3.5 w-3.5" />} label="Permissions">
+                <DetailRow icon={<Shield className="h-3.5 w-3.5" />} label={tr('Permissions')}>
                   <span>{permissionMode}</span>
                 </DetailRow>
               )}
               <CopyRow
                 icon={<Hash className="h-3.5 w-3.5" />}
-                label="Session ID"
+                label={tr('Session ID')}
                 value={session.id}
                 copied={copiedField === 'id'}
                 onCopy={() => copyToClipboard('id', session.id)}
@@ -345,13 +338,13 @@ export function SessionEditModal() {
               {/* Events / agents counts removed — denormalized session
                   fields are gone. Counts can be re-derived via
                   useAgents() if a future phase wants them back. */}
-              <DetailRow icon={<CalendarDays className="h-3.5 w-3.5" />} label="Started">
+              <DetailRow icon={<CalendarDays className="h-3.5 w-3.5" />} label={tr('Started')}>
                 <span title={formatAbsoluteTime(session.startedAt)}>
                   {formatRelativeTime(session.startedAt)}
                 </span>
               </DetailRow>
               {session.lastActivity && (
-                <DetailRow icon={<Clock className="h-3.5 w-3.5" />} label="Last activity">
+                <DetailRow icon={<Clock className="h-3.5 w-3.5" />} label={tr('Last activity')}>
                   <span title={formatAbsoluteTime(session.lastActivity)}>
                     {formatRelativeTime(session.lastActivity)}
                   </span>
@@ -360,7 +353,7 @@ export function SessionEditModal() {
               {jsonlPath && (
                 <CopyRow
                   icon={<Copy className="h-3.5 w-3.5" />}
-                  label="Transcript"
+                  label={tr('Transcript')}
                   value={jsonlPath}
                   copied={copiedField === 'transcript'}
                   onCopy={() => copyToClipboard('transcript', jsonlPath)}
@@ -369,7 +362,7 @@ export function SessionEditModal() {
               {resumeCmd && (
                 <CopyRow
                   icon={<Terminal className="h-3.5 w-3.5" />}
-                  label="Resume"
+                  label={tr('Resume')}
                   value={resumeCmd}
                   copied={copiedField === 'resume'}
                   onCopy={() => copyToClipboard('resume', resumeCmd)}
@@ -379,7 +372,7 @@ export function SessionEditModal() {
               {forkCmd && (
                 <CopyRow
                   icon={<Terminal className="h-3.5 w-3.5" />}
-                  label="Fork"
+                  label={tr('Fork')}
                   value={forkCmd}
                   copied={copiedField === 'fork'}
                   onCopy={() => copyToClipboard('fork', forkCmd)}
@@ -394,7 +387,7 @@ export function SessionEditModal() {
                   disabled={busy}
                 >
                   <ArrowRightLeft className="h-3.5 w-3.5 mr-1.5" />
-                  Move to project
+                  {tr('Move to project')}
                 </Button>
                 <Button
                   variant="outline"
@@ -403,7 +396,7 @@ export function SessionEditModal() {
                   disabled={busy}
                 >
                   <Eraser className="h-3.5 w-3.5 mr-1.5" />
-                  Clear logs
+                  {tr('Clear logs')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -413,7 +406,7 @@ export function SessionEditModal() {
                   disabled={busy}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                  Delete session
+                  {tr('Delete session')}
                 </Button>
               </div>
             </div>
@@ -433,17 +426,21 @@ export function SessionEditModal() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction === 'delete'
-                ? `Delete session "${label}"?`
-                : `Clear logs for "${label}"?`}
+                ? tr('Delete session "{name}"?', { name: label })
+                : tr('Clear logs for "{name}"?', { name: label })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === 'delete'
-                ? 'This will permanently delete this session and its Observe logs. Your original Claude session file is not modified.'
-                : 'This will remove all events recorded for this session. Your original Claude session file is not modified.'}
+                ? tr(
+                    'This will permanently delete this session and its Observe logs. Your original Claude session file is not modified.',
+                  )
+                : tr(
+                    'This will remove all events recorded for this session. Your original Claude session file is not modified.',
+                  )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>{tr('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
@@ -452,7 +449,7 @@ export function SessionEditModal() {
                 else if (confirmAction === 'clear') handleClearLogs()
               }}
             >
-              {busy ? 'Working...' : confirmAction === 'delete' ? 'Delete' : 'Clear'}
+              {busy ? tr('Working...') : confirmAction === 'delete' ? tr('Delete') : tr('Clear')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -947,7 +944,7 @@ function SessionStats({ sessionId }: { sessionId: string }) {
   if (isLoading || !stats) {
     return (
       <div className="px-5 py-8">
-        <Spinner label="Computing stats..." />
+        <Spinner label={tr('Computing stats...')} />
       </div>
     )
   }
@@ -955,11 +952,11 @@ function SessionStats({ sessionId }: { sessionId: string }) {
   // Overview preview: 6 cards. Expanded adds the rest + Permissions.
   const overviewPreview = (
     <div className="grid grid-cols-6 gap-2">
-      <StatCard label="Duration" value={stats.duration} />
-      <StatCard label="Events" value={stats.totalEvents.toLocaleString()} />
-      <StatCard label="Tool Calls" value={stats.toolCalls.toLocaleString()} />
+      <StatCard label={tr('Duration')} value={stats.duration} />
+      <StatCard label={tr('Events')} value={stats.totalEvents.toLocaleString()} />
+      <StatCard label={tr('Tool Calls')} value={stats.toolCalls.toLocaleString()} />
       <StatCard
-        label="Prompts"
+        label={tr('Prompts')}
         value={stats.userPrompts.toLocaleString()}
         secondary={
           stats.userPromptsFromEvents !== stats.userPrompts
@@ -970,41 +967,42 @@ function SessionStats({ sessionId }: { sessionId: string }) {
           stats.userPromptsFromEvents !== stats.userPrompts ? (
             <div className="space-y-1.5">
               <div>
-                <span className="font-medium">{stats.userPrompts.toLocaleString()}</span> prompts
-                from the JSONL transcript.
+                <span className="font-medium">{stats.userPrompts.toLocaleString()}</span>{' '}
+                {tr('prompts from the JSONL transcript.')}
               </div>
               <div>
                 <span className="font-medium">{stats.userPromptsFromEvents.toLocaleString()}</span>{' '}
-                captured UserPromptSubmit hook events.
+                {tr('captured UserPromptSubmit hook events.')}
               </div>
               <div className="text-muted-foreground">
-                The difference can be prompts from other plugins that don't fire UserPromptSubmit,
-                or prompts from before observe was capturing on a resumed session.
+                {tr(
+                  "The difference can be prompts from other plugins that don't fire UserPromptSubmit, or prompts from before observe was capturing on a resumed session.",
+                )}
               </div>
             </div>
           ) : undefined
         }
       />
-      <StatCard label="Subagents" value={stats.subagentsSpawned.toLocaleString()} />
-      <StatCard label="Success" value={stats.toolSuccessRate} />
+      <StatCard label={tr('Subagents')} value={stats.subagentsSpawned.toLocaleString()} />
+      <StatCard label={tr('Success')} value={stats.toolSuccessRate} />
     </div>
   )
   const overviewDetails = (
     <div className="space-y-3">
       <div className="grid grid-cols-4 gap-3">
-        <StatCard label="Turns" value={stats.turns.toLocaleString()} />
-        <StatCard label="Git Commits" value={stats.gitCommits.toLocaleString()} />
-        <StatCard label="Files Read" value={stats.filesRead.toLocaleString()} />
-        <StatCard label="Files Edited" value={stats.filesEdited.toLocaleString()} />
+        <StatCard label={tr('Turns')} value={stats.turns.toLocaleString()} />
+        <StatCard label={tr('Git Commits')} value={stats.gitCommits.toLocaleString()} />
+        <StatCard label={tr('Files Read')} value={stats.filesRead.toLocaleString()} />
+        <StatCard label={tr('Files Edited')} value={stats.filesEdited.toLocaleString()} />
       </div>
       {(stats.permissionRequests > 0 || stats.permissionDenials > 0) && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-            Permissions
+            {tr('Permissions')}
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Requests" value={stats.permissionRequests.toLocaleString()} />
-            <StatCard label="Denials" value={stats.permissionDenials.toLocaleString()} />
+            <StatCard label={tr('Requests')} value={stats.permissionRequests.toLocaleString()} />
+            <StatCard label={tr('Denials')} value={stats.permissionDenials.toLocaleString()} />
           </div>
         </div>
       )}
@@ -1017,7 +1015,7 @@ function SessionStats({ sessionId }: { sessionId: string }) {
       {stats.tools.length > 0 && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-            Top Tools
+            {tr('Top Tools')}
           </div>
           <div className="space-y-1">
             {stats.tools.slice(0, 6).map(({ name, count }) => {
@@ -1043,7 +1041,7 @@ function SessionStats({ sessionId }: { sessionId: string }) {
       {stats.longestToolCall && (
         <div className="text-sm">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mr-2">
-            Longest tool call:
+            {tr('Longest tool call:')}
           </span>
           <button
             type="button"
@@ -1067,19 +1065,21 @@ function SessionStats({ sessionId }: { sessionId: string }) {
   const toolUsageDetails = (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-        All Tools
+        {tr('All Tools')}
       </div>
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground border-b border-border">
-            <th className="text-left font-normal py-1.5 px-2 whitespace-nowrap">Tool</th>
-            <th className="text-left font-normal py-1.5 px-2 w-2/5 whitespace-nowrap">Graph</th>
-            <th className="text-right font-normal py-1.5 px-2 whitespace-nowrap">Count</th>
+            <th className="text-left font-normal py-1.5 px-2 whitespace-nowrap">{tr('Tool')}</th>
+            <th className="text-left font-normal py-1.5 px-2 w-2/5 whitespace-nowrap">
+              {tr('Graph')}
+            </th>
+            <th className="text-right font-normal py-1.5 px-2 whitespace-nowrap">{tr('Count')}</th>
             <th
               className="text-right font-normal py-1.5 px-2 border-l border-border/30 whitespace-nowrap"
               colSpan={3}
             >
-              <span className="text-[9px] uppercase tracking-wide">Duration</span>
+              <span className="text-[9px] uppercase tracking-wide">{tr('Duration')}</span>
             </th>
           </tr>
           <tr className="text-muted-foreground/70 border-b border-border">
@@ -1087,10 +1087,10 @@ function SessionStats({ sessionId }: { sessionId: string }) {
             <th></th>
             <th></th>
             <th className="text-right font-normal text-[10px] py-1 px-2 border-l border-border/30">
-              Min
+              {tr('Min')}
             </th>
-            <th className="text-right font-normal text-[10px] py-1 px-2">Median</th>
-            <th className="text-right font-normal text-[10px] py-1 px-2">Max</th>
+            <th className="text-right font-normal text-[10px] py-1 px-2">{tr('Median')}</th>
+            <th className="text-right font-normal text-[10px] py-1 px-2">{tr('Max')}</th>
           </tr>
         </thead>
         <tbody className="font-mono">
@@ -1127,9 +1127,13 @@ function SessionStats({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="px-5 py-4 text-xs overflow-y-auto max-h-[60vh]">
-      <CollapsibleSection title="Overview" preview={overviewPreview} details={overviewDetails} />
       <CollapsibleSection
-        title="Tool Usage"
+        title={tr('Overview')}
+        preview={overviewPreview}
+        details={overviewDetails}
+      />
+      <CollapsibleSection
+        title={tr('Tool Usage')}
         preview={toolUsagePreview}
         details={toolUsageDetails}
       />
@@ -1186,7 +1190,7 @@ function SessionLabelsTab({ sessionId }: { sessionId: string }) {
   return (
     <div className="px-5 py-4 text-xs overflow-y-auto max-h-[50vh]">
       {sortedLabels.length === 0 ? (
-        <p className="text-muted-foreground mb-3">No labels yet. Create one below.</p>
+        <p className="text-muted-foreground mb-3">{tr('No labels yet. Create one below.')}</p>
       ) : (
         <div className="flex flex-wrap gap-1.5 mb-4">
           {sortedLabels.map((label) => {
@@ -1207,8 +1211,8 @@ function SessionLabelsTab({ sessionId }: { sessionId: string }) {
                 </button>
                 <button
                   type="button"
-                  aria-label={`Open "${label.name}" in Labels modal`}
-                  title="Open in Labels modal"
+                  aria-label={tr('Open "{name}" in Labels modal', { name: label.name })}
+                  title={tr('Open in Labels modal')}
                   onClick={() => {
                     setEditingSessionId(null)
                     openLabelsModal(label.id)
@@ -1240,16 +1244,16 @@ function SessionLabelsTab({ sessionId }: { sessionId: string }) {
               addLabel()
             }
           }}
-          placeholder="New label name..."
+          placeholder={tr('New label name...')}
           className="h-8 text-xs"
         />
         <Button variant="outline" size="sm" onClick={addLabel} disabled={!input.trim()}>
-          Add
+          {tr('Add')}
         </Button>
       </div>
       {error && <p className="text-[11px] text-destructive mt-1.5">{error}</p>}
       <p className="text-[10px] text-muted-foreground/70 mt-3">
-        Labels are saved in this browser only.
+        {tr('Labels are saved in this browser only.')}
       </p>
     </div>
   )
@@ -1340,7 +1344,7 @@ function CopyRow({
     <div
       className="flex items-start gap-2 min-w-0 group/copy cursor-pointer hover:text-foreground transition-colors"
       onClick={onCopy}
-      title={copied ? 'Copied!' : 'Click to copy'}
+      title={copied ? tr('Copied!') : tr('Click to copy')}
     >
       <span className="text-muted-foreground/60 shrink-0 mt-px">{icon}</span>
       <span className="text-muted-foreground w-24 shrink-0">{label}</span>

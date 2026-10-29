@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { t as tr } from '@/lib/i18n'
 
 // In-progress edits live in filter-draft-store so the SettingsModal
 // close handler can detect them. Save / Discard removes the entry;
@@ -131,23 +132,24 @@ export function FiltersTab() {
       <aside className="w-72 border-r border-border flex flex-col">
         <div className="p-3">
           <Input
-            placeholder="Filter…"
+            placeholder={tr('Filter…')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-7 text-xs"
           />
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2 text-xs">
-          <Section label="Primary" tone="primary">
+          <Section label={tr('Primary')} tone="primary">
             {primaryFilters.length === 0 ? (
-              <div className="px-2 py-1 text-muted-foreground italic">(None)</div>
+              <div className="px-2 py-1 text-muted-foreground italic">{tr('(None)')}</div>
             ) : (
               primaryFilters.map((f) => (
                 <Fragment key={f.id}>
                   {f.id === ALL_FILTER_ID && (
                     <p className="px-2 py-1 text-[10px] text-muted-foreground italic">
-                      Hides events from the timeline and event stream. Excluded events still appear
-                      in raw logs.
+                      {tr(
+                        'Hides events from the timeline and event stream. Excluded events still appear in raw logs.',
+                      )}
                     </p>
                   )}
                   <Row
@@ -160,9 +162,9 @@ export function FiltersTab() {
               ))
             )}
           </Section>
-          <Section label="Secondary" tone="secondary" className="mt-5">
+          <Section label={tr('Secondary')} tone="secondary" className="mt-5">
             {secondaryFilters.length === 0 ? (
-              <div className="px-2 py-1 text-muted-foreground italic">(None)</div>
+              <div className="px-2 py-1 text-muted-foreground italic">{tr('(None)')}</div>
             ) : (
               secondaryFilters.map((f) => (
                 <Row
@@ -196,25 +198,26 @@ export function FiltersTab() {
               setSelectedId(f.id)
             }}
           >
-            + New filter
+            {tr('+ New filter')}
           </Button>
           <button
             type="button"
             onClick={() => setResetConfirmOpen(true)}
             className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors text-center"
           >
-            Reload defaults
+            {tr('Reload defaults')}
           </button>
         </div>
       </aside>
       <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reload default filters?</AlertDialogTitle>
+            <AlertDialogTitle>{tr('Reload default filters?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              These {filters.filter((f) => f.kind === 'default').length} default filters will be
-              reset to their original name, patterns, display, and color. User filters and any
-              custom filters you've created stay untouched.
+              {tr(
+                "These {n} default filters will be reset to their original name, patterns, display, and color. User filters and any custom filters you've created stay untouched.",
+                { n: filters.filter((f) => f.kind === 'default').length },
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* List the defaults so the user sees exactly what's affected. */}
@@ -228,7 +231,7 @@ export function FiltersTab() {
               ))}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -236,7 +239,7 @@ export function FiltersTab() {
                 void resetDefaults()
               }}
             >
-              Reload
+              {tr('Reload')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -310,7 +313,10 @@ function Row({
       )}
     >
       {modified ? (
-        <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" title="Unsaved changes" />
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0"
+          title={tr('Unsaved changes')}
+        />
       ) : null}
       <span className="flex-1 truncate">{f.name}</span>
       <input
@@ -327,7 +333,7 @@ function Row({
 function EmptyState() {
   return (
     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-      Select a filter to view or edit
+      {tr('Select a filter to view or edit')}
     </div>
   )
 }
@@ -469,7 +475,7 @@ function FilterEditor({
         // reads as a status badge on the card rather than a chip in the
         // toolbar. Solid background occludes the border behind it.
         <span className="absolute -top-2 left-3 z-10 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500 text-white shadow-sm">
-          Unsaved
+          {tr('Unsaved')}
         </span>
       ) : null}
       <div className="p-4 flex flex-col flex-1 min-h-0">
@@ -482,9 +488,9 @@ function FilterEditor({
                 ? 'border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-400'
                 : 'border-border text-muted-foreground hover:bg-accent',
             )}
-            title="Click to toggle"
+            title={tr('Click to toggle')}
           >
-            {filter.enabled ? 'ENABLED' : 'DISABLED'}
+            {filter.enabled ? tr('ENABLED') : tr('DISABLED')}
           </button>
           <Input
             value={name}
@@ -492,12 +498,12 @@ function FilterEditor({
               const v = e.target.value
               setDraft(pillNameAutoMirror ? { name: v, pillName: v } : { name: v })
             }}
-            placeholder="Filter name"
+            placeholder={tr('Filter name')}
             className="flex-1 min-w-[10rem] h-8 text-sm font-semibold"
           />
           {hasDraft ? (
             <Button variant="outline" size="sm" onClick={onDiscard}>
-              Discard
+              {tr('Discard')}
             </Button>
           ) : null}
           <Button
@@ -506,10 +512,10 @@ function FilterEditor({
             disabled={!hasDraft || !!invalidPattern}
             onClick={onSave}
           >
-            Save
+            {tr('Save')}
           </Button>
           <Button size="sm" variant="outline" onClick={onDuplicate}>
-            Duplicate
+            {tr('Duplicate')}
           </Button>
           <Button
             size="sm"
@@ -517,21 +523,25 @@ function FilterEditor({
             className="hover:text-red-600 hover:border-red-500"
             onClick={() => setConfirmDeleteOpen(true)}
           >
-            Delete
+            {tr('Delete')}
           </Button>
         </div>
 
         <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete filter “{filter.name}”?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {tr('Delete filter “{name}”?', { name: filter.name })}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently removes the filter. Events that currently match it will lose their
-                “{filter.pillName}” pill. This cannot be undone.
+                {tr(
+                  'This permanently removes the filter. Events that currently match it will lose their “{pill}” pill. This cannot be undone.',
+                  { pill: filter.pillName },
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{tr('Cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={(e) => {
@@ -540,7 +550,7 @@ function FilterEditor({
                   void onDelete()
                 }}
               >
-                Delete
+                {tr('Delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -549,7 +559,7 @@ function FilterEditor({
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <div className="grid grid-cols-3 gap-3 items-end">
             <div>
-              <label className="text-xs uppercase text-muted-foreground">Pill name</label>
+              <label className="text-xs uppercase text-muted-foreground">{tr('Pill name')}</label>
               <Input
                 value={pillName}
                 onChange={(e) => setDraft({ pillName: e.target.value, pillNameAutoMirror: false })}
@@ -558,7 +568,7 @@ function FilterEditor({
             </div>
             {!isAllFilter && (
               <div>
-                <label className="text-xs uppercase text-muted-foreground">Display</label>
+                <label className="text-xs uppercase text-muted-foreground">{tr('Display')}</label>
                 <div className="flex h-9 border border-input rounded-md text-xs overflow-hidden">
                   {(['primary', 'secondary'] as const).map((d) => {
                     const isActive = display === d
@@ -575,7 +585,7 @@ function FilterEditor({
                           isActive ? activeClass : 'bg-transparent',
                         )}
                       >
-                        {d === 'primary' ? 'Primary' : 'Secondary'}
+                        {d === 'primary' ? tr('Primary') : tr('Secondary')}
                       </button>
                     )
                   })}
@@ -584,7 +594,7 @@ function FilterEditor({
             )}
             {!isAllFilter && (
               <div className="text-right">
-                <label className="text-xs uppercase text-muted-foreground">Color</label>
+                <label className="text-xs uppercase text-muted-foreground">{tr('Color')}</label>
                 <CssColorPicker value={colorValue} onChange={setColor} />
               </div>
             )}
@@ -594,20 +604,21 @@ function FilterEditor({
               CSS-color hint is right-aligned so it lines up under Color. */}
           <div className="mt-1 flex justify-between gap-3 text-[10px] text-muted-foreground">
             <span>
-              Vars: <code>{'{hookName}'}</code> <code>{'{toolName}'}</code>{' '}
+              {tr('Vars:')} <code>{'{hookName}'}</code> <code>{'{toolName}'}</code>{' '}
               <code>{'{bashCommand}'}</code>
             </span>
             <span>
-              Any CSS color: <code>#ea580c</code>, <code>red</code>, etc.
+              {tr('Any CSS color:')} <code>#ea580c</code>, <code>red</code>
+              {tr(', etc.')}
             </span>
           </div>
 
           <div className="mt-4 flex items-center gap-3">
-            <label className="text-xs uppercase text-muted-foreground">Patterns</label>
+            <label className="text-xs uppercase text-muted-foreground">{tr('Patterns')}</label>
             {!isAllFilter && (
               <>
                 <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">combine with:</span>
+                <span className="text-xs text-muted-foreground">{tr('combine with:')}</span>
                 <div className="flex border rounded text-[10px] overflow-hidden">
                   {(['and', 'or'] as const).map((c) => (
                     <button
@@ -647,7 +658,7 @@ function FilterEditor({
                   <div className="flex gap-2 items-center">
                     <span
                       className={cn('h-2.5 w-2.5 rounded-sm shrink-0', patternPaletteClass(i))}
-                      title={`Pattern ${i + 1} highlight color (used in preview)`}
+                      title={tr('Pattern {n} highlight color (used in preview)', { n: i + 1 })}
                     />
                     <div className="flex border rounded text-[10px] overflow-hidden">
                       {(['hook', 'tool', 'payload'] as const).map((t) => (
@@ -679,7 +690,7 @@ function FilterEditor({
                         <button
                           type="button"
                           onClick={toggleExpanded}
-                          title="Negated — click to edit advanced flags"
+                          title={tr('Negated — click to edit advanced flags')}
                           className="h-9 px-2.5 flex items-center justify-center rounded-l-md border border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-400 font-mono text-xs cursor-pointer"
                         >
                           !
@@ -698,7 +709,7 @@ function FilterEditor({
                         <button
                           type="button"
                           onClick={toggleExpanded}
-                          title="Case insensitive — click to edit advanced flags"
+                          title={tr('Case insensitive — click to edit advanced flags')}
                           className="h-9 px-2.5 flex items-center justify-center rounded-r-md border border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-400 font-mono text-xs italic cursor-pointer"
                         >
                           i
@@ -707,7 +718,7 @@ function FilterEditor({
                     </div>
                     <button
                       type="button"
-                      title="Advanced"
+                      title={tr('Advanced')}
                       onClick={toggleExpanded}
                       className={cn(
                         'h-7 w-7 flex items-center justify-center rounded border transition-colors',
@@ -739,7 +750,9 @@ function FilterEditor({
                     <div className="flex gap-4 pl-[166px] py-1 text-xs text-muted-foreground">
                       <label
                         className="flex items-center gap-1.5 cursor-pointer"
-                        title="When checked, the pattern matches events whose target does NOT match the regex"
+                        title={tr(
+                          'When checked, the pattern matches events whose target does NOT match the regex',
+                        )}
                       >
                         <input
                           type="checkbox"
@@ -747,7 +760,7 @@ function FilterEditor({
                           onChange={(e) => updatePattern({ negate: e.target.checked || undefined })}
                           className="h-3 w-3"
                         />
-                        Invert match
+                        {tr('Invert match')}
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -764,7 +777,7 @@ function FilterEditor({
                           }}
                           className="h-3 w-3"
                         />
-                        Case insensitive
+                        {tr('Case insensitive')}
                       </label>
                     </div>
                   ) : null}
@@ -787,7 +800,7 @@ function FilterEditor({
               })
             }
           >
-            + Add pattern
+            {tr('+ Add pattern')}
           </button>
 
           <LivePreview
@@ -798,7 +811,9 @@ function FilterEditor({
           />
 
           {invalidPattern ? (
-            <div className="mt-3 text-xs text-red-600">Invalid regex: {invalidPattern}</div>
+            <div className="mt-3 text-xs text-red-600">
+              {tr('Invalid regex: {error}', { error: invalidPattern })}
+            </div>
           ) : null}
         </div>
       </div>
@@ -1118,7 +1133,7 @@ function LivePreview({
           </pre>
           {highlighted.truncated ? (
             <div className="text-[10px] italic">
-              Showing first {MAX_PREVIEW_TEXT.toLocaleString()} characters
+              {tr('Showing first {n} characters', { n: MAX_PREVIEW_TEXT.toLocaleString() })}
             </div>
           ) : null}
         </div>
@@ -1147,13 +1162,13 @@ function PatternLegendRow({ h }: { h: PatternHighlight }) {
       case 'hook':
         return (
           <>
-            matched hook <code className="font-mono text-foreground">{h.value}</code>
+            {tr('matched hook')} <code className="font-mono text-foreground">{h.value}</code>
           </>
         )
       case 'tool':
         return (
           <>
-            matched tool <code className="font-mono text-foreground">{h.value}</code>
+            {tr('matched tool')} <code className="font-mono text-foreground">{h.value}</code>
           </>
         )
       case 'negated':

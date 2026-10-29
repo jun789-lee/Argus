@@ -10,6 +10,7 @@ import { DotTooltipContent } from './dot-tooltip'
 import { registerTimelineScroll, getEventStreamScrollTo, withSyncLock } from '@/lib/scroll-sync'
 import type { Agent } from '@/types'
 import type { EnrichedEvent } from '@/agents/types'
+import { t } from '@/lib/i18n'
 
 const LABEL_WIDTH = 160 // px — matches the w-40 sticky label
 const LANE_HEIGHT = 32 // px — matches h-8
@@ -205,7 +206,7 @@ export const TimelineRewind = memo(function TimelineRewind({
   if (deduped.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        No events in this session
+        {t('No events in this session')}
       </div>
     )
   }
@@ -218,10 +219,13 @@ export const TimelineRewind = memo(function TimelineRewind({
   if (totalWidth > MAX_TOTAL_WIDTH_PX) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-1 p-4 text-center text-xs text-muted-foreground">
-        <div className="font-medium text-foreground">Can't render rewind for this session</div>
+        <div className="font-medium text-foreground">
+          {t("Can't render rewind for this session")}
+        </div>
         <div>
-          Session span is too large — likely one or more events have an invalid timestamp far in the
-          future.
+          {t(
+            'Session span is too large — likely one or more events have an invalid timestamp far in the future.',
+          )}
         </div>
       </div>
     )

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useProjects } from '@/hooks/use-projects'
 import type { Project, Session } from '@/types'
+import { t, tn, shortTimeAgo } from '@/lib/i18n'
 
 interface ProjectModalProps {
   project: Project | null
@@ -37,15 +38,7 @@ interface ProjectModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+const formatRelativeTime = shortTimeAgo
 
 function shortenCwd(cwd: string): string {
   return cwd.replace(/^\/(?:Users|home)\/[^/]+/, '~')
@@ -243,7 +236,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                   size="icon-xs"
                   className="shrink-0"
                   onClick={startRenaming}
-                  title="Rename project"
+                  title={t('Rename project')}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -252,12 +245,12 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                   size="icon-xs"
                   className="shrink-0 text-muted-foreground hover:text-destructive"
                   onClick={() => setConfirmAction('delete-project')}
-                  title="Delete project"
+                  title={t('Delete project')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
                 <DialogClose asChild>
-                  <Button variant="ghost" size="icon-xs" className="shrink-0" title="Close">
+                  <Button variant="ghost" size="icon-xs" className="shrink-0" title={t('Close')}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </DialogClose>
@@ -270,7 +263,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
               {cwdSummary.cwd}
               {cwdSummary.otherCount > 0 && (
                 <span className="ml-1">
-                  (+{cwdSummary.otherCount} other dir{cwdSummary.otherCount !== 1 ? 's' : ''})
+                  ({tn('+{n} other dir', '+{n} other dirs', cwdSummary.otherCount)})
                 </span>
               )}
             </div>
@@ -284,9 +277,11 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                 <div className="flex items-center gap-3 px-5 py-2 min-h-12 bg-background sticky top-0 z-10 border-b border-border/50">
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                   <span className="text-xs text-muted-foreground">
-                    {sortedSessions.length} session{sortedSessions.length !== 1 ? 's' : ''}
+                    {tn('{n} session', '{n} sessions', sortedSessions.length)}
                     {selectedSessionIds.size > 0 && (
-                      <span className="ml-1">({selectedSessionIds.size} selected)</span>
+                      <span className="ml-1">
+                        ({t('{n} selected', { n: selectedSessionIds.size })})
+                      </span>
                     )}
                   </span>
                   {selectedSessionIds.size > 0 ? (
@@ -297,7 +292,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                         onClick={() => setMoveSessionIds(new Set(selectedSessionIds))}
                       >
                         <ArrowRightLeft className="h-3 w-3 mr-1" />
-                        Move selected
+                        {t('Move selected')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -306,7 +301,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                         onClick={() => setConfirmAction('delete-sessions')}
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
-                        Delete selected
+                        {t('Delete selected')}
                       </Button>
                     </div>
                   ) : (
@@ -318,11 +313,11 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                     >
                       {sortOrder === 'activity' ? (
                         <>
-                          <Clock className="h-3 w-3" /> Recent
+                          <Clock className="h-3 w-3" /> {t('Recent')}
                         </>
                       ) : (
                         <>
-                          <CalendarDays className="h-3 w-3" /> Created
+                          <CalendarDays className="h-3 w-3" /> {t('Created')}
                         </>
                       )}
                     </button>
@@ -348,7 +343,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
               </div>
             ) : (
               <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                No sessions
+                {t('No sessions')}
               </div>
             )}
           </div>
@@ -364,17 +359,21 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction === 'delete-project'
-                ? `Delete project "${project.name}"?`
-                : `Delete ${selectedSessionIds.size} session${selectedSessionIds.size !== 1 ? 's' : ''}?`}
+                ? t('Delete project "{name}"?', { name: project.name })
+                : tn('Delete {n} session?', 'Delete {n} sessions?', selectedSessionIds.size)}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === 'delete-project'
-                ? 'This will permanently delete this project and all its Observe logs. Your original Claude session files are not modified.'
-                : 'This will permanently delete the selected session logs. Your original Claude session files are not modified.'}
+                ? t(
+                    'This will permanently delete this project and all its Observe logs. Your original Claude session files are not modified.',
+                  )
+                : t(
+                    'This will permanently delete the selected session logs. Your original Claude session files are not modified.',
+                  )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deleting}
@@ -383,7 +382,7 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
                 else if (confirmAction === 'delete-sessions') handleDeleteSelectedSessions()
               }}
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? t('Deleting...') : t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -415,23 +414,31 @@ export function ProjectModal({ project, open, onOpenChange }: ProjectModalProps)
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Move {moveSessionIds?.size} session{(moveSessionIds?.size ?? 0) !== 1 ? 's' : ''} to
-              &ldquo;{confirmMoveTarget?.name}&rdquo;?
+              {tn(
+                'Move {n} session to “{name}”?',
+                'Move {n} sessions to “{name}”?',
+                moveSessionIds?.size ?? 0,
+                {
+                  name: confirmMoveTarget?.name ?? '',
+                },
+              )}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              The selected sessions will be moved from &ldquo;{project.name}&rdquo; to &ldquo;
-              {confirmMoveTarget?.name}&rdquo;.
+              {t('The selected sessions will be moved from “{from}” to “{to}”.', {
+                from: project.name,
+                to: confirmMoveTarget?.name ?? '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={moving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={moving}>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               disabled={moving}
               onClick={() => {
                 if (confirmMoveTarget) handleMoveSessions(confirmMoveTarget.id)
               }}
             >
-              {moving ? 'Moving...' : 'Move'}
+              {moving ? t('Moving...') : t('Move')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -529,7 +536,7 @@ function SessionRow({
           )}
           {!isEditing && (
             <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-              Created {createdTime}
+              {t('Created {time}', { time: createdTime })}
             </span>
           )}
         </div>
@@ -551,13 +558,13 @@ function SessionRow({
         {/* Pencil (rename) stays leftmost — closest to the session
             name so the relationship between icon and target is obvious.
             SquarePen (open details modal) follows. */}
-        <Button variant="ghost" size="icon-xs" title="Rename" onClick={startEditing}>
+        <Button variant="ghost" size="icon-xs" title={t('Rename')} onClick={startEditing}>
           <Pencil className="h-3 w-3 text-muted-foreground/40 group-hover:text-yellow-500 transition-colors" />
         </Button>
         <Button
           variant="ghost"
           size="icon-xs"
-          title="Session details"
+          title={t('Session details')}
           onClick={() => useUIStore.getState().setEditingSessionId(session.id)}
         >
           <SquarePen className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
@@ -566,7 +573,7 @@ function SessionRow({
           <Button
             variant="ghost"
             size="icon-xs"
-            title={copied ? 'Copied!' : 'Copy JSONL path'}
+            title={copied ? t('Copied!') : t('Copy JSONL path')}
             onClick={() => {
               navigator.clipboard.writeText(jsonlPath)
               setCopied(true)
@@ -580,13 +587,13 @@ function SessionRow({
             )}
           </Button>
         )}
-        <Button variant="ghost" size="icon-xs" title="Move to project" onClick={onMove}>
+        <Button variant="ghost" size="icon-xs" title={t('Move to project')} onClick={onMove}>
           <ArrowRightLeft className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
         </Button>
         <Button
           variant="ghost"
           size="icon-xs"
-          title="Delete"
+          title={t('Delete')}
           className="group-hover:text-destructive"
           onClick={onDelete}
         >
@@ -628,7 +635,7 @@ export function MoveSessionModal({
       >
         <div className="px-5 pt-5 pb-3">
           <DialogTitle>
-            Move {sessionCount} session{sessionCount !== 1 ? 's' : ''} to...
+            {tn('Move {n} session to...', 'Move {n} sessions to...', sessionCount)}
           </DialogTitle>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto border-t">
@@ -644,7 +651,7 @@ export function MoveSessionModal({
                   <span className="truncate">{p.name}</span>
                   {p.sessionCount != null && (
                     <span className="ml-auto text-[10px] text-muted-foreground">
-                      {p.sessionCount} sessions
+                      {tn('{n} session', '{n} sessions', p.sessionCount)}
                     </span>
                   )}
                 </button>
@@ -652,7 +659,7 @@ export function MoveSessionModal({
             </div>
           ) : (
             <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              No other projects
+              {t('No other projects')}
             </div>
           )}
         </div>

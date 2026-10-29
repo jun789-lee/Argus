@@ -18,6 +18,7 @@ import { Search, X, Tag, Clock, Pencil, Trash2, Check, Plus, SquarePen } from 'l
 // LabelsModalBody is now rendered inside the Settings modal as the
 // "Labels" tab. The standalone modal wrapper is gone.
 import type { Label, RecentSession } from '@/types'
+import { t as tr } from '@/lib/i18n'
 
 const RECENT_LIMIT = 1000
 
@@ -196,7 +197,7 @@ export function LabelsModalBody() {
           }}
         >
           <Plus className="h-3 w-3 mr-1" />
-          New label
+          {tr('New label')}
         </Button>
 
         <div className="relative ml-auto w-94">
@@ -204,7 +205,7 @@ export function LabelsModalBody() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search labels, sessions, cwd, or transcript path..."
+            placeholder={tr('Search labels, sessions, cwd, or transcript path...')}
             className="h-8 text-xs pl-7 pr-7"
           />
           {search && (
@@ -212,7 +213,7 @@ export function LabelsModalBody() {
               type="button"
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setSearch('')}
-              aria-label="Clear search"
+              aria-label={tr('Clear search')}
             >
               <X className="h-3 w-3" />
             </button>
@@ -241,7 +242,7 @@ export function LabelsModalBody() {
                   setNewLabelError(null)
                 }
               }}
-              placeholder="New label name..."
+              placeholder={tr('New label name...')}
               className="h-8 text-xs"
             />
             <Button
@@ -251,7 +252,7 @@ export function LabelsModalBody() {
               onClick={submitNewLabel}
               disabled={!newLabelName.trim()}
             >
-              Add
+              {tr('Add')}
             </Button>
             <Button
               variant="ghost"
@@ -263,7 +264,7 @@ export function LabelsModalBody() {
                 setNewLabelError(null)
               }}
             >
-              Cancel
+              {tr('Cancel')}
             </Button>
           </div>
           {newLabelError && <p className="text-[10px] text-destructive mt-1">{newLabelError}</p>}
@@ -272,9 +273,10 @@ export function LabelsModalBody() {
 
       <div ref={scrollContainerRef} className="border-t flex-1 overflow-y-auto">
         {labelCount === 0 ? (
-          <EmptyState title="No labels yet">
-            Create your first label with the <strong>New label</strong> button above, or open any
-            session's <strong>Labels</strong> tab to bookmark it.
+          <EmptyState title={tr('No labels yet')}>
+            {tr(
+              "Create your first label with the New label button above, or open any session's Labels tab to bookmark it.",
+            )}
           </EmptyState>
         ) : (
           <ByLabelView
@@ -292,7 +294,7 @@ export function LabelsModalBody() {
       </div>
 
       <div className="border-t px-5 py-2 text-[10px] text-muted-foreground/70">
-        Labels are saved in this browser only.
+        {tr('Labels are saved in this browser only.')}
       </div>
     </>
   )
@@ -361,8 +363,8 @@ function ByLabelView({
 
   if (visibleGroups.length === 0) {
     return (
-      <EmptyState title="No matches">
-        No labels or sessions match "<strong>{search}</strong>".
+      <EmptyState title={tr('No matches')}>
+        {tr('No labels or sessions match "{q}".', { q: search })}
       </EmptyState>
     )
   }
@@ -449,7 +451,7 @@ function LabelGroup({
               }}
               className="h-6 text-xs"
             />
-            <Button variant="ghost" size="icon-xs" onClick={submitRename} title="Save">
+            <Button variant="ghost" size="icon-xs" onClick={submitRename} title={tr('Save')}>
               <Check className="h-3 w-3" />
             </Button>
             <Button
@@ -460,7 +462,7 @@ function LabelGroup({
                 setRenameValue(label.name)
                 setRenameError(null)
               }}
-              title="Cancel"
+              title={tr('Cancel')}
             >
               <X className="h-3 w-3" />
             </Button>
@@ -479,7 +481,7 @@ function LabelGroup({
                   setRenameValue(label.name)
                   setIsRenaming(true)
                 }}
-                title="Rename"
+                title={tr('Rename')}
               >
                 <Pencil className="h-3 w-3" />
               </Button>
@@ -488,7 +490,7 @@ function LabelGroup({
                 size="icon-xs"
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => setConfirmDelete(true)}
-                title="Delete"
+                title={tr('Delete')}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -499,7 +501,7 @@ function LabelGroup({
       {renameError && <div className="px-5 pb-1 text-[10px] text-destructive">{renameError}</div>}
       {sessions.length === 0 && (
         <div className="px-5 py-2 text-[11px] text-muted-foreground/70 italic">
-          No sessions in this label yet.
+          {tr('No sessions in this label yet.')}
         </div>
       )}
       {sessions.map((session) => (
@@ -517,13 +519,17 @@ function LabelGroup({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete label "{label.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {tr('Delete label "{name}"?', { name: label.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the label from every session. The sessions themselves are not deleted.
+              {tr(
+                'This removes the label from every session. The sessions themselves are not deleted.',
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -531,7 +537,7 @@ function LabelGroup({
                 setConfirmDelete(false)
               }}
             >
-              Delete
+              {tr('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -599,8 +605,8 @@ function SessionRow({
               onOpenDetails()
             }}
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-            aria-label="Open session details"
-            title="Open session details"
+            aria-label={tr('Open session details')}
+            title={tr('Open session details')}
           >
             <SquarePen className="h-3 w-3" />
           </button>
@@ -612,8 +618,8 @@ function SessionRow({
                 onRemoveFromLabel()
               }}
               className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-              aria-label="Remove from label"
-              title="Remove from label"
+              aria-label={tr('Remove from label')}
+              title={tr('Remove from label')}
             >
               <X className="h-3 w-3" />
             </button>

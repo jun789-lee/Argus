@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export interface SortableColumn<T> {
@@ -139,7 +140,7 @@ export function SortableTable<T>({
                 onClick={() => setExpanded(true)}
                 className="text-muted-foreground hover:text-foreground cursor-pointer hover:underline text-xs"
               >
-                View more ({hiddenCount})
+                {t('View more ({n})', { n: hiddenCount })}
               </button>
             </td>
           </tr>

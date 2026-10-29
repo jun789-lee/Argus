@@ -46,6 +46,7 @@ import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Rewind, Play } from 'lucide-react'
 import type { EnrichedEvent } from '@/agents/types'
+import { t as tr } from '@/lib/i18n'
 
 export function ActivityTimeline() {
   const {
@@ -202,10 +203,10 @@ export function ActivityTimeline() {
       >
         <div className="flex items-center justify-between px-3 py-1 border-b border-border/50">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium">Activity</span>
+            <span className="text-xs text-muted-foreground font-medium">{tr('Activity')}</span>
             {rewindMode && (
               <span className="text-[9px] px-1.5 py-px rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                REWIND
+                {tr('REWIND')}
               </span>
             )}
           </div>
@@ -238,15 +239,15 @@ export function ActivityTimeline() {
                   : 'h-5 px-2 text-[10px] mr-1 border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
               }
               onClick={handleToggleRewind}
-              title={rewindMode ? 'Resume live view' : 'Pause and rewind'}
+              title={rewindMode ? tr('Resume live view') : tr('Pause and rewind')}
             >
               {rewindMode ? (
                 <>
-                  <Rewind className="h-2.5 w-2.5 mr-0.5" /> Rewind
+                  <Rewind className="h-2.5 w-2.5 mr-0.5" /> {tr('Rewind')}
                 </>
               ) : (
                 <>
-                  <Play className="h-2.5 w-2.5 mr-0.5" /> Live
+                  <Play className="h-2.5 w-2.5 mr-0.5" /> {tr('Live')}
                 </>
               )}
             </Button>
@@ -303,7 +304,7 @@ export function ActivityTimeline() {
               ))}
               {flatAgents.length === 0 && (
                 <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                  No agent activity
+                  {tr('No agent activity')}
                 </div>
               )}
             </>

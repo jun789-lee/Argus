@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useUIStore, buildHash } from '@/stores/ui-store'
 import { formatBytes } from '@/lib/format-bytes'
 import type { Label, Project, RecentSession } from '@/types'
+import { t, tn } from '@/lib/i18n'
 
 type AgeFilter = 'all' | '3d' | '7d' | '14d' | '30d'
 // Event-count buckets. >= for the "big" buckets matches the user's
@@ -78,7 +79,7 @@ function formatDate(ts: number | null | undefined): string {
     return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   }
   const days = Math.floor(diff / DAY_MS)
-  if (days < 7) return `${days}d ago`
+  if (days < 7) return t('{n}d ago', { n: days })
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
@@ -288,20 +289,20 @@ export function SessionsTab() {
     <div className="space-y-4">
       {/* Stats header */}
       <div className="grid grid-cols-5 gap-3 rounded-md border p-3 bg-muted/30">
-        <Stat label="Database size" value={stats ? formatBytes(stats.sizeBytes) : '…'} />
-        <Stat label="Events" value={stats ? stats.eventCount.toLocaleString() : '…'} />
-        <Stat label="Sessions" value={stats ? stats.sessionCount.toLocaleString() : '…'} />
-        <Stat label="Oldest" value={formatDate(sessionDateRange.oldest)} />
-        <Stat label="Newest" value={formatDate(sessionDateRange.newest)} />
+        <Stat label={t('Database size')} value={stats ? formatBytes(stats.sizeBytes) : '…'} />
+        <Stat label={t('Events')} value={stats ? stats.eventCount.toLocaleString() : '…'} />
+        <Stat label={t('Sessions')} value={stats ? stats.sessionCount.toLocaleString() : '…'} />
+        <Stat label={t('Oldest')} value={formatDate(sessionDateRange.oldest)} />
+        <Stat label={t('Newest')} value={formatDate(sessionDateRange.newest)} />
       </div>
 
       {/* Toolbar: age filter on the left, event-count filter on the
           right. Sort lives on the column headers. */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground mr-1">Age:</span>
+          <span className="text-muted-foreground mr-1">{t('Age:')}</span>
           <FilterPill active={ageFilter === 'all'} onClick={() => setAgeFilter('all')}>
-            All
+            {t('All')}
           </FilterPill>
           <FilterPill active={ageFilter === '3d'} onClick={() => setAgeFilter('3d')}>
             &gt;3d
@@ -318,9 +319,9 @@ export function SessionsTab() {
         </div>
 
         <div className="flex items-center gap-1 text-xs ml-auto">
-          <span className="text-muted-foreground mr-1">Events:</span>
+          <span className="text-muted-foreground mr-1">{t('Events:')}</span>
           <FilterPill active={eventFilter === 'all'} onClick={() => setEventFilter('all')}>
-            All
+            {t('All')}
           </FilterPill>
           <FilterPill active={eventFilter === 'lt10'} onClick={() => setEventFilter('lt10')}>
             &lt;10
@@ -346,7 +347,7 @@ export function SessionsTab() {
           onClick={() => setConfirmOpen(true)}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Delete {selected.size > 0 ? `(${selected.size})` : ''}
+          {t('Delete')} {selected.size > 0 ? `(${selected.size})` : ''}
         </Button>
         <Button
           variant="outline"
@@ -356,11 +357,11 @@ export function SessionsTab() {
           onClick={() => setAddLabelOpen(true)}
         >
           <Tag className="h-3.5 w-3.5" />
-          Add Label {selected.size > 0 ? `(${selected.size})` : ''}
+          {t('Add Label')} {selected.size > 0 ? `(${selected.size})` : ''}
         </Button>
         <Input
           type="search"
-          placeholder="Search name or cwd..."
+          placeholder={t('Search name or cwd...')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="ml-auto h-8 max-w-[240px] text-xs"
@@ -373,34 +374,34 @@ export function SessionsTab() {
           <Checkbox
             checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
             onCheckedChange={toggleSelectAll}
-            aria-label="Select all sessions"
+            aria-label={t('Select all sessions')}
           />
           <SortHeader
-            label={`Session (${filteredSessions.length})`}
+            label={t('Session ({n})', { n: filteredSessions.length })}
             active={sortBy === 'status'}
             dir={sortDir}
             onClick={() => toggleSort('status')}
           />
           <SortHeader
-            label="Agent"
+            label={t('Agent')}
             active={sortBy === 'agent'}
             dir={sortDir}
             onClick={() => toggleSort('agent')}
           />
           <SortHeader
-            label="Created"
+            label={t('Created')}
             active={sortBy === 'created'}
             dir={sortDir}
             onClick={() => toggleSort('created')}
           />
           <SortHeader
-            label="Last activity"
+            label={t('Last activity')}
             active={sortBy === 'activity'}
             dir={sortDir}
             onClick={() => toggleSort('activity')}
           />
           <SortHeader
-            label="Events"
+            label={t('Events')}
             align="right"
             active={sortBy === 'events'}
             dir={sortDir}
@@ -412,12 +413,12 @@ export function SessionsTab() {
         <div className="max-h-[40vh] overflow-y-auto">
           {isLoading && (
             <div className="px-3 py-8 text-sm text-muted-foreground text-center">
-              Loading sessions...
+              {t('Loading sessions...')}
             </div>
           )}
           {!isLoading && filteredSessions.length === 0 && (
             <div className="px-3 py-8 text-sm text-muted-foreground text-center">
-              No sessions match this filter.
+              {t('No sessions match this filter.')}
             </div>
           )}
           {filteredSessions.map((s) => (
@@ -463,17 +464,22 @@ export function SessionsTab() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {selected.size} session{selected.size !== 1 ? 's' : ''}?
+              {tn('Delete {n} session?', 'Delete {n} sessions?', selected.size)}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes {selected.size} session{selected.size !== 1 ? 's' : ''} and{' '}
-              {selectedEventCount.toLocaleString()} event{selectedEventCount !== 1 ? 's' : ''} from
-              the Observe database, then runs VACUUM to reclaim disk space. Your original Claude
-              session files are not modified.
+              {t(
+                'This permanently removes {sessions} and {events} from the Observe database, then runs VACUUM to reclaim disk space. Your original Claude session files are not modified.',
+                {
+                  sessions: tn('{n} session', '{n} sessions', selected.size),
+                  events: tn('{n} event', '{n} events', selectedEventCount, {
+                    n: selectedEventCount.toLocaleString(),
+                  }),
+                },
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deleting}
@@ -482,7 +488,7 @@ export function SessionsTab() {
                 handleDelete()
               }}
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? t('Deleting...') : t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -531,7 +537,7 @@ function SortHeader({
         (align === 'right' ? 'justify-end' : 'justify-start') +
         (active ? ' text-foreground' : '')
       }
-      title={`Sort by ${label.toLowerCase()}`}
+      title={t('Sort by {col}', { col: label.toLowerCase() })}
     >
       {align === 'right' && chevron}
       <span>{label}</span>
@@ -589,7 +595,7 @@ function SessionRow({
     // row-spanned and self-centered so they line up with the label row.
     <label className="grid grid-cols-[auto_1fr_100px_95px_95px_55px_28px] gap-x-3 gap-y-0.5 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/30 cursor-pointer">
       <div className="row-span-2 self-center">
-        <Checkbox checked={checked} onCheckedChange={onToggle} aria-label="Select session" />
+        <Checkbox checked={checked} onCheckedChange={onToggle} aria-label={t('Select session')} />
       </div>
       <div className="flex items-center gap-1.5 min-w-0 self-center">
         {/* Same green/grey status dot used in the main session list.
@@ -599,7 +605,7 @@ function SessionRow({
             'h-2 w-2 shrink-0 rounded-full ' +
             (isActive ? 'bg-green-500' : 'bg-muted-foreground/60 dark:bg-muted-foreground/40')
           }
-          title={isActive ? 'Active' : 'Stopped'}
+          title={isActive ? t('Active') : t('Stopped')}
         />
         <span className="truncate font-medium">{label}</span>
       </div>
@@ -640,8 +646,8 @@ function SessionRow({
           e.stopPropagation()
         }}
         className="row-span-2 self-center flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground cursor-pointer"
-        title="Edit session (cmd/ctrl-click to open in new tab)"
-        aria-label="Edit session"
+        title={t('Edit session (cmd/ctrl-click to open in new tab)')}
+        aria-label={t('Edit session')}
       >
         <SquarePen className="h-3.5 w-3.5" />
       </a>
@@ -664,7 +670,7 @@ function SessionRow({
             onOpenProject()
           }}
           className="shrink-0 truncate cursor-pointer hover:text-foreground hover:underline underline-offset-2 decoration-muted-foreground/40"
-          title="Open project"
+          title={t('Open project')}
         >
           {session.projectName}
         </button>
@@ -674,7 +680,7 @@ function SessionRow({
               <span
                 key={l.id}
                 className="inline-flex items-center gap-0.5 rounded bg-muted text-[10px] text-muted-foreground px-1 py-px"
-                title={`Label: ${l.name}`}
+                title={t('Label: {name}', { name: l.name })}
               >
                 <Tag className="h-2.5 w-2.5" />
                 {l.name}
@@ -782,16 +788,14 @@ function AddLabelDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[460px] max-w-[90vw] p-6">
-        <DialogTitle>
-          Labels for {count} session{count === 1 ? '' : 's'}
-        </DialogTitle>
+        <DialogTitle>{tn('Labels for {n} session', 'Labels for {n} sessions', count)}</DialogTitle>
         <div className="space-y-2 mt-2">
           <p className="text-[11px] text-muted-foreground/70">
-            Toggle labels on or off for the selected sessions. Click Done to apply.
+            {t('Toggle labels on or off for the selected sessions. Click Done to apply.')}
           </p>
           {labels.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No labels yet. Create a new one then apply it.
+              {t('No labels yet. Create a new one then apply it.')}
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -812,10 +816,10 @@ function AddLabelDialog({
                     }
                     title={
                       state === 'on'
-                        ? 'Remove from all selected'
+                        ? t('Remove from all selected')
                         : state === 'partial'
-                          ? 'Applied to some — click to apply to all'
-                          : 'Apply to all selected'
+                          ? t('Applied to some — click to apply to all')
+                          : t('Apply to all selected')
                     }
                   >
                     <Tag className="h-3 w-3" />
@@ -838,7 +842,7 @@ function AddLabelDialog({
               <div className="flex items-center gap-2">
                 <Input
                   autoFocus
-                  placeholder="New label name"
+                  placeholder={t('New label name')}
                   value={newLabelName}
                   onChange={(e) => {
                     setNewLabelName(e.target.value)
@@ -862,7 +866,7 @@ function AddLabelDialog({
                   disabled={!newLabelName.trim()}
                   onClick={handleCreate}
                 >
-                  Add
+                  {t('Add')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={cancelCreate}>
                   <X className="h-3.5 w-3.5" />
@@ -881,11 +885,11 @@ function AddLabelDialog({
                 onClick={() => setCreating(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                New Label
+                {t('New Label')}
               </Button>
               <div className="ml-auto">
                 <Button size="sm" onClick={() => onOpenChange(false)}>
-                  Done
+                  {t('Done')}
                 </Button>
               </div>
             </div>

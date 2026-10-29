@@ -1,4 +1,5 @@
 import type { EnrichedEvent, FrameworkDataApi } from '../types'
+import { t } from '@/lib/i18n'
 
 function TextBlock({ label, value }: { label: string; value: string }) {
   return (
@@ -25,7 +26,7 @@ function Usage({ usage }: { usage: Record<string, any> }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">
-        Tokens
+        {t('Tokens')}
       </div>
       <div className="grid grid-cols-4 gap-2">
         {shown.map(([k, v]) => (
@@ -56,20 +57,20 @@ export function HermesEventDetail({ event }: { event: EnrichedEvent; dataApi: Fr
 
   return (
     <div className="space-y-2.5">
-      {userMessage && <TextBlock label="User message" value={userMessage} />}
-      {assistantResponse && <TextBlock label="Assistant response" value={assistantResponse} />}
-      {responseText && !assistantResponse && <TextBlock label="Output" value={responseText} />}
+      {userMessage && <TextBlock label={t('User message')} value={userMessage} />}
+      {assistantResponse && <TextBlock label={t('Assistant response')} value={assistantResponse} />}
+      {responseText && !assistantResponse && <TextBlock label={t('Output')} value={responseText} />}
       {p.tool_name && (
         <TextBlock
-          label="Tool"
+          label={t('Tool')}
           value={`${p.tool_name}${p.args ? `\n${JSON.stringify(p.args, null, 2)}` : ''}`}
         />
       )}
-      {toolResult && <TextBlock label="Result" value={toolResult} />}
+      {toolResult && <TextBlock label={t('Result')} value={toolResult} />}
       {usage && <Usage usage={usage} />}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-0.5">
-          Raw payload
+          {t('Raw payload')}
         </div>
         <pre className="overflow-x-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed max-h-60 overflow-y-auto">
           {JSON.stringify(event.payload, null, 2)}

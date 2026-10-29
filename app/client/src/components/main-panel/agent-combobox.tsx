@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/command'
 import { Bot, Check, ChevronDown, X, Users, Copy } from 'lucide-react'
 import type { Agent } from '@/types'
+import { t } from '@/lib/i18n'
 
 function formatRuntime(agent: Agent): string {
   const end = agent.lastEventAt ?? Date.now()
@@ -84,13 +85,15 @@ export function AgentCombobox() {
             className="h-7 gap-1.5 text-xs px-2.5"
           >
             <Users className="h-3.5 w-3.5" />
-            Agents
+            {t('Agents')}
             {activeCount > 0 && (
-              <span className="text-green-600 dark:text-green-400">{activeCount} active</span>
+              <span className="text-green-600 dark:text-green-400">
+                {t('{n} active', { n: activeCount })}
+              </span>
             )}
             {selectedAgentIds.length > 0 && (
               <Badge variant="secondary" className="text-[10px] h-4 px-1 ml-0.5">
-                {selectedAgentIds.length} selected
+                {t('{n} selected', { n: selectedAgentIds.length })}
               </Badge>
             )}
             <ChevronDown className="h-3 w-3 opacity-50" />
@@ -109,9 +112,9 @@ export function AgentCombobox() {
               return 0
             }}
           >
-            <CommandInput placeholder="Search agents..." />
+            <CommandInput placeholder={t('Search agents...')} />
             <CommandList>
-              <CommandEmpty>No agents found.</CommandEmpty>
+              <CommandEmpty>{t('No agents found.')}</CommandEmpty>
               <CommandGroup>
                 <CommandItem
                   value="__show_all__"
@@ -119,12 +122,12 @@ export function AgentCombobox() {
                   className="text-xs"
                 >
                   <Bot className="h-3.5 w-3.5" />
-                  <span className="font-medium">Show All Agents</span>
+                  <span className="font-medium">{t('Show All Agents')}</span>
                   {selectedAgentIds.length === 0 && <Check className="ml-auto h-3.5 w-3.5" />}
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
-              <CommandGroup heading={`${agents.length} agents`}>
+              <CommandGroup heading={t('{n} agents', { n: agents.length })}>
                 {sortedAgents.map((agent) => {
                   const isSelected = selectedAgentIds.includes(agent.id)
                   const isMain = !agent.parentAgentId
@@ -201,7 +204,7 @@ export function AgentCombobox() {
                         </Badge>
                         <button
                           className="opacity-40 hover:opacity-100 transition-opacity"
-                          title="Copy agent ID"
+                          title={t('Copy agent ID')}
                           onClick={(e) => {
                             e.stopPropagation()
                             navigator.clipboard.writeText(agent.id)

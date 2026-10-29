@@ -8,10 +8,14 @@ import { useWebSocket } from '@/hooks/use-websocket'
 import { useRouteSync } from '@/hooks/use-route-sync'
 import { useUIStore } from '@/stores/ui-store'
 import { useNotificationsController } from '@/components/sidebar/notification-indicator'
+import { useLangStore } from '@/lib/i18n'
 
 export function App() {
   const selectedSessionId = useUIStore((s) => s.selectedSessionId)
   const { connected } = useWebSocket(selectedSessionId)
+  // Remount the UI tree on language change so plain (non-hook) t() calls
+  // re-render everywhere without each component subscribing.
+  const lang = useLangStore((s) => s.lang)
   useRouteSync()
   useNotificationsController()
 
@@ -33,11 +37,11 @@ export function App() {
 
   return (
     <ThemeProvider>
-      <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <div key={lang} className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar connected={connected} />
         <MainPanel />
       </div>
-      <SessionEditModal />
+      <SessionEditModal key={lang} />
     </ThemeProvider>
   )
 }

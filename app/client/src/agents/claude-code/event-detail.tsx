@@ -26,6 +26,7 @@ import { computeRuntimeMs, formatRuntime } from './runtime'
 import type { FrameworkDataApi } from '../types'
 import type { ClaudeCodeEnrichedEvent } from './types'
 import type { Agent } from '@/types'
+import { t } from '@/lib/i18n'
 
 // ── Markdown rendering config ──────────────────────────────
 //
@@ -237,7 +238,7 @@ export function ClaudeCodeEventDetail({
   return (
     <div className="space-y-2 text-xs">
       {/* Show hook name when dedup is off */}
-      {!event.dedupMode && <DetailRow label="Hook" value={event.hookName} />}
+      {!event.dedupMode && <DetailRow label={t('Hook')} value={event.hookName} />}
 
       {/* Per-event-type rich detail */}
       <ToolDetail
@@ -255,7 +256,7 @@ export function ClaudeCodeEventDetail({
       {event.hookName !== 'PostToolUseFailure' &&
         event.hookName !== 'StopFailure' &&
         typeof payload.error === 'string' &&
-        payload.error && <DetailCode label="Error" value={payload.error} />}
+        payload.error && <DetailCode label={t('Error')} value={payload.error} />}
 
       {/* Runtime — elapsed time between an event and its paired end.
           - Pre/Post pairs (tool use, compact) via groupId
@@ -263,7 +264,7 @@ export function ClaudeCodeEventDetail({
           - SubagentStart → SubagentStop via turnEvents */}
       {(() => {
         const ms = computeRuntimeMs(event, pairedEvent, turnEvents)
-        return ms != null ? <DetailRow label="Runtime" value={formatRuntime(ms)} /> : null
+        return ms != null ? <DetailRow label={t('Runtime')} value={formatRuntime(ms)} /> : null
       })()}
 
       {/* Raw payload section(s) — two for paired tool rows, one otherwise.
@@ -284,7 +285,7 @@ export function ClaudeCodeEventDetail({
         </>
       ) : (
         <RawPayloadSection
-          label="Raw payload"
+          label={t('Raw payload')}
           timestamp={event.timestamp}
           payload={event.payload as Record<string, unknown>}
         />
@@ -311,7 +312,7 @@ export function ClaudeCodeEventDetail({
             ) : (
               <ChevronDown className="h-3 w-3" />
             )}
-            <span>Conversation thread</span>
+            <span>{t('Conversation thread')}</span>
             {threadCollapsed && threadRows.length > 0 && (
               <span className="ml-1 text-[10px] text-muted-foreground/70 tabular-nums">
                 ({threadRows.length})
@@ -327,7 +328,7 @@ export function ClaudeCodeEventDetail({
               </div>
             ) : (
               <div className="text-muted-foreground/80 dark:text-muted-foreground/60 py-1">
-                No thread events found
+                {t('No thread events found')}
               </div>
             ))}
         </div>
@@ -433,8 +434,8 @@ function ToolDetail({
     const finalMessage = (stopEvent?.payload as any)?.last_assistant_message
     return (
       <div className="space-y-1.5">
-        <DetailCode label="Prompt" value={payload.prompt} />
-        {finalMessage && <DetailCode label="Result" value={finalMessage} />}
+        <DetailCode label={t('Prompt')} value={payload.prompt} />
+        {finalMessage && <DetailCode label={t('Result')} value={finalMessage} />}
       </div>
     )
   }
@@ -448,9 +449,9 @@ function ToolDetail({
 
     return (
       <div className="space-y-1.5">
-        {promptText && <DetailCode label="Prompt" value={promptText} />}
+        {promptText && <DetailCode label={t('Prompt')} value={promptText} />}
         {payload.last_assistant_message && (
-          <DetailCode label="Final" value={payload.last_assistant_message} />
+          <DetailCode label={t('Final')} value={payload.last_assistant_message} />
         )}
       </div>
     )
@@ -471,9 +472,9 @@ function ToolDetail({
     return (
       <div className="space-y-1.5">
         <AgentIdentity assignedName={assignedName} rawName={rawName} agentId={event.agentId} />
-        {spawnDesc && <DetailRow label="Task" value={spawnDesc} />}
-        {spawnPrompt && <DetailCode label="Prompt" value={spawnPrompt} />}
-        {agentResult && <DetailCode label="Result" value={agentResult} />}
+        {spawnDesc && <DetailRow label={t('Task')} value={spawnDesc} />}
+        {spawnPrompt && <DetailCode label={t('Prompt')} value={spawnPrompt} />}
+        {agentResult && <DetailCode label={t('Result')} value={agentResult} />}
       </div>
     )
   }
@@ -481,10 +482,12 @@ function ToolDetail({
   if (event.hookName === 'SessionStart') {
     return (
       <div className="space-y-1">
-        <DetailRow label="Source" value={payload.source || 'new'} />
-        {cwd && <DetailRow label="Working dir" value={cwd} />}
-        {payload.version && <DetailRow label="Version" value={payload.version} />}
-        {payload.permissionMode && <DetailRow label="Permissions" value={payload.permissionMode} />}
+        <DetailRow label={t('Source')} value={payload.source || 'new'} />
+        {cwd && <DetailRow label={t('Working dir')} value={cwd} />}
+        {payload.version && <DetailRow label={t('Version')} value={payload.version} />}
+        {payload.permissionMode && (
+          <DetailRow label={t('Permissions')} value={payload.permissionMode} />
+        )}
       </div>
     )
   }
@@ -492,7 +495,7 @@ function ToolDetail({
   if (event.hookName === 'SessionEnd') {
     return (
       <div className="space-y-1">
-        <DetailRow label="Status" value="Session ended" />
+        <DetailRow label={t('Status')} value="Session ended" />
       </div>
     )
   }
@@ -515,10 +518,10 @@ function ToolDetail({
     return (
       <div className="space-y-1.5">
         {payload.last_assistant_message && (
-          <DetailRow label="Message" value={payload.last_assistant_message as string} />
+          <DetailRow label={t('Message')} value={payload.last_assistant_message as string} />
         )}
-        {errorType && <DetailRow label="Error" value={errorType} />}
-        {errorMessage && <DetailCode label="Details" value={errorMessage} />}
+        {errorType && <DetailRow label={t('Error')} value={errorType} />}
+        {errorMessage && <DetailCode label={t('Details')} value={errorMessage} />}
       </div>
     )
   }
@@ -541,10 +544,10 @@ function ToolDetail({
       <div className="space-y-1.5">
         <AgentIdentity assignedName={assignedName} rawName={rawName} agentId={event.agentId} />
         {(spawnDesc || payload.description) && (
-          <DetailRow label="Task" value={spawnDesc || payload.description} />
+          <DetailRow label={t('Task')} value={spawnDesc || payload.description} />
         )}
-        {spawnPrompt && <DetailCode label="Prompt" value={spawnPrompt} />}
-        {agentResult && <DetailCode label="Result" value={agentResult} />}
+        {spawnPrompt && <DetailCode label={t('Prompt')} value={spawnPrompt} />}
+        {agentResult && <DetailCode label={t('Result')} value={agentResult} />}
       </div>
     )
   }
@@ -553,14 +556,14 @@ function ToolDetail({
     const failTi = payload.tool_input || {}
     return (
       <div className="space-y-1.5">
-        {event.toolName && <DetailRow label="Tool" value={event.toolName} />}
-        {failTi.command && <DetailCode label="Command" value={failTi.command} />}
+        {event.toolName && <DetailRow label={t('Tool')} value={event.toolName} />}
+        {failTi.command && <DetailCode label={t('Command')} value={failTi.command} />}
         {/* StructuredOutput failures: show the rejected/partial output above
             the schema-validation error so both are visible. */}
         {event.toolName === 'StructuredOutput' && <StructuredOutputDetail data={failTi} />}
         {payload.error && (
           <DetailCode
-            label="Error"
+            label={t('Error')}
             value={
               typeof payload.error === 'string'
                 ? payload.error
@@ -576,16 +579,18 @@ function ToolDetail({
     const permTi = payload.tool_input as Record<string, any> | undefined
     return (
       <div className="space-y-1.5">
-        {payload.tool_name && <DetailRow label="Tool" value={payload.tool_name as string} />}
-        {permTi?.command && <DetailCode label="Command" value={permTi.command} />}
-        {permTi?.description && <DetailRow label="Description" value={permTi.description} />}
+        {payload.tool_name && <DetailRow label={t('Tool')} value={payload.tool_name as string} />}
+        {permTi?.command && <DetailCode label={t('Command')} value={permTi.command} />}
+        {permTi?.description && <DetailRow label={t('Description')} value={permTi.description} />}
         {permTi?.file_path && (
-          <DetailRow label="File" value={relativePath(permTi.file_path, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(permTi.file_path, cwd)} />
         )}
-        {payload.ruleContent && <DetailRow label="Rule" value={payload.ruleContent as string} />}
+        {payload.ruleContent && (
+          <DetailRow label={t('Rule')} value={payload.ruleContent as string} />
+        )}
         {payload.permission_suggestions && (
           <DetailCode
-            label="Permissions"
+            label={t('Permissions')}
             value={
               typeof payload.permission_suggestions === 'string'
                 ? payload.permission_suggestions
@@ -603,12 +608,12 @@ function ToolDetail({
     const taskGrouped = event.groupId ? dataApi.getGroupedEvents(event.groupId) : []
     return (
       <div className="space-y-1.5">
-        {subject && <DetailRow label="Subject" value={subject} />}
-        {payload.task_id && <DetailRow label="Task ID" value={String(payload.task_id)} />}
-        {description && <DetailCode label="Description" value={description} />}
+        {subject && <DetailRow label={t('Subject')} value={subject} />}
+        {payload.task_id && <DetailRow label={t('Task ID')} value={String(payload.task_id)} />}
+        {description && <DetailCode label={t('Description')} value={description} />}
         {taskGrouped.length > 1 && (
           <div>
-            <div className="text-muted-foreground mb-1 font-medium">Task history:</div>
+            <div className="text-muted-foreground mb-1 font-medium">{t('Task history:')}</div>
             <div className="space-y-0.5 rounded border border-border/50 bg-muted/20 p-1.5">
               {taskGrouped.map((e) => {
                 const ep = e.payload as Record<string, any>
@@ -683,7 +688,7 @@ function ToolDetail({
     return (
       <div className="space-y-1">
         {payload.teammate_name && (
-          <DetailRow label="Teammate" value={payload.teammate_name as string} />
+          <DetailRow label={t('Teammate')} value={payload.teammate_name as string} />
         )}
       </div>
     )
@@ -693,7 +698,7 @@ function ToolDetail({
     return (
       <div className="space-y-1">
         {payload.file_path && (
-          <DetailRow label="File" value={relativePath(payload.file_path as string, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(payload.file_path as string, cwd)} />
         )}
       </div>
     )
@@ -703,7 +708,7 @@ function ToolDetail({
     return (
       <div className="space-y-1">
         {payload.file_path && (
-          <DetailRow label="File" value={relativePath(payload.file_path as string, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(payload.file_path as string, cwd)} />
         )}
       </div>
     )
@@ -712,8 +717,8 @@ function ToolDetail({
   if (event.hookName === 'CwdChanged') {
     return (
       <div className="space-y-1">
-        {payload.old_cwd && <DetailRow label="From" value={payload.old_cwd as string} />}
-        <DetailRow label="To" value={(payload.new_cwd || payload.cwd || '') as string} />
+        {payload.old_cwd && <DetailRow label={t('From')} value={payload.old_cwd as string} />}
+        <DetailRow label={t('To')} value={(payload.new_cwd || payload.cwd || '') as string} />
       </div>
     )
   }
@@ -722,7 +727,7 @@ function ToolDetail({
     return (
       <div className="space-y-1">
         {payload.file_path && (
-          <DetailRow label="File" value={relativePath(payload.file_path as string, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(payload.file_path as string, cwd)} />
         )}
       </div>
     )
@@ -736,11 +741,11 @@ function ToolDetail({
     const prompt = payload.prompt as string | undefined
     return (
       <div className="space-y-1.5">
-        {expansionType && <DetailRow label="Expansion" value={expansionType} />}
-        {commandName && <DetailRow label="Command" value={commandName} />}
-        {commandArgs && <DetailRow label="Args" value={commandArgs} />}
-        {commandSource && <DetailRow label="Source" value={commandSource} />}
-        {prompt && <DetailCode label="Prompt" value={prompt} />}
+        {expansionType && <DetailRow label={t('Expansion')} value={expansionType} />}
+        {commandName && <DetailRow label={t('Command')} value={commandName} />}
+        {commandArgs && <DetailRow label={t('Args')} value={commandArgs} />}
+        {commandSource && <DetailRow label={t('Source')} value={commandSource} />}
+        {prompt && <DetailCode label={t('Prompt')} value={prompt} />}
       </div>
     )
   }
@@ -753,20 +758,20 @@ function ToolDetail({
     const customInstructions = payload.custom_instructions
     return (
       <div className="space-y-1.5">
-        {payload.trigger && <DetailRow label="Trigger" value={String(payload.trigger)} />}
+        {payload.trigger && <DetailRow label={t('Trigger')} value={String(payload.trigger)} />}
         {customInstructions ? (
-          <DetailCode label="Custom instructions" value={String(customInstructions)} />
+          <DetailCode label={t('Custom instructions')} value={String(customInstructions)} />
         ) : (
-          <DetailRow label="Custom instructions" value="—" />
+          <DetailRow label={t('Custom instructions')} value="—" />
         )}
         {payload.tokens_before && (
-          <DetailRow label="Tokens before" value={String(payload.tokens_before)} />
+          <DetailRow label={t('Tokens before')} value={String(payload.tokens_before)} />
         )}
         {payload.tokens_after && (
-          <DetailRow label="Tokens after" value={String(payload.tokens_after)} />
+          <DetailRow label={t('Tokens after')} value={String(payload.tokens_after)} />
         )}
         {payload.compact_summary && (
-          <DetailCode label="Summary" value={String(payload.compact_summary)} />
+          <DetailCode label={t('Summary')} value={String(payload.compact_summary)} />
         )}
       </div>
     )
@@ -775,8 +780,10 @@ function ToolDetail({
   if (event.hookName === 'Elicitation') {
     return (
       <div className="space-y-1.5">
-        {payload.message && <DetailCode label="Question" value={payload.message as string} />}
-        {payload.question && <DetailCode label="Question" value={payload.question as string} />}
+        {payload.message && <DetailCode label={t('Question')} value={payload.message as string} />}
+        {payload.question && (
+          <DetailCode label={t('Question')} value={payload.question as string} />
+        )}
       </div>
     )
   }
@@ -784,8 +791,10 @@ function ToolDetail({
   if (event.hookName === 'ElicitationResult') {
     return (
       <div className="space-y-1.5">
-        {payload.response && <DetailCode label="Response" value={payload.response as string} />}
-        {payload.result && <DetailCode label="Result" value={payload.result as string} />}
+        {payload.response && (
+          <DetailCode label={t('Response')} value={payload.response as string} />
+        )}
+        {payload.result && <DetailCode label={t('Result')} value={payload.result as string} />}
       </div>
     )
   }
@@ -793,8 +802,8 @@ function ToolDetail({
   if (event.hookName === 'WorktreeCreate' || event.hookName === 'WorktreeRemove') {
     return (
       <div className="space-y-1">
-        {payload.path && <DetailRow label="Path" value={payload.path as string} />}
-        {payload.branch && <DetailRow label="Branch" value={payload.branch as string} />}
+        {payload.path && <DetailRow label={t('Path')} value={payload.path as string} />}
+        {payload.branch && <DetailRow label={t('Branch')} value={payload.branch as string} />}
       </div>
     )
   }
@@ -808,10 +817,10 @@ function ToolDetail({
       const isDiff = /\bdiff\b/.test(ti.command || '')
       return (
         <div className="space-y-1.5">
-          {ti.description && <DetailRow label="Description" value={ti.description} />}
-          {ti.command && <DetailCode label="Command" value={ti.command} />}
+          {ti.description && <DetailRow label={t('Description')} value={ti.description} />}
+          {ti.command && <DetailCode label={t('Command')} value={ti.command} />}
           {cwd && <DetailRow label="CWD" value={cwd} />}
-          {result && <DetailCode label="Result" value={formatResult(result)} diff={isDiff} />}
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} diff={isDiff} />}
         </div>
       )
     }
@@ -823,23 +832,25 @@ function ToolDetail({
       const displayContent = typeof fileContent === 'string' ? fileContent : result
       return (
         <div className="space-y-1.5">
-          <DetailRow label="File" value={relativePath(ti.file_path, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(ti.file_path, cwd)} />
           {ti.offset && (
             <DetailRow
-              label="Range"
+              label={t('Range')}
               value={`line ${ti.offset}${ti.limit ? `, limit ${ti.limit}` : ''}`}
             />
           )}
-          {fileType && fileType !== 'text' && <DetailRow label="Type" value={fileType} />}
-          {displayContent && <DetailCode label="Content" value={formatResult(displayContent)} />}
+          {fileType && fileType !== 'text' && <DetailRow label={t('Type')} value={fileType} />}
+          {displayContent && (
+            <DetailCode label={t('Content')} value={formatResult(displayContent)} />
+          )}
         </div>
       )
     }
     case 'Write':
       return (
         <div className="space-y-1.5">
-          <DetailRow label="File" value={relativePath(ti.file_path, cwd)} />
-          {result && <DetailCode label="Result" value={formatResult(result)} />}
+          <DetailRow label={t('File')} value={relativePath(ti.file_path, cwd)} />
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} />}
         </div>
       )
     case 'Edit': {
@@ -849,17 +860,17 @@ function ToolDetail({
       const editResult = patchLines || result
       return (
         <div className="space-y-1.5">
-          <DetailRow label="File" value={relativePath(ti.file_path, cwd)} />
+          <DetailRow label={t('File')} value={relativePath(ti.file_path, cwd)} />
           {ti.old_string && ti.new_string ? (
             <DetailDiff oldValue={ti.old_string} newValue={ti.new_string} />
           ) : (
             <>
-              {ti.old_string && <DetailCode label="Old" value={ti.old_string} />}
-              {ti.new_string && <DetailCode label="New" value={ti.new_string} />}
+              {ti.old_string && <DetailCode label={t('Old')} value={ti.old_string} />}
+              {ti.new_string && <DetailCode label={t('New')} value={ti.new_string} />}
             </>
           )}
           {editResult && (
-            <DetailCode label="Result" value={formatResult(editResult)} diff={!!patchLines} />
+            <DetailCode label={t('Result')} value={formatResult(editResult)} diff={!!patchLines} />
           )}
         </div>
       )
@@ -867,18 +878,18 @@ function ToolDetail({
     case 'Grep':
       return (
         <div className="space-y-1.5">
-          <DetailRow label="Pattern" value={`/${ti.pattern}/`} />
-          {ti.path && <DetailRow label="Path" value={relativePath(ti.path, cwd)} />}
+          <DetailRow label={t('Pattern')} value={`/${ti.pattern}/`} />
+          {ti.path && <DetailRow label={t('Path')} value={relativePath(ti.path, cwd)} />}
           {ti.glob && <DetailRow label="Glob" value={ti.glob} />}
-          {result && <DetailCode label="Result" value={formatResult(result)} />}
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} />}
         </div>
       )
     case 'Glob':
       return (
         <div className="space-y-1.5">
-          <DetailRow label="Pattern" value={ti.pattern} />
-          {ti.path && <DetailRow label="Path" value={relativePath(ti.path, cwd)} />}
-          {result && <DetailCode label="Result" value={formatResult(result)} />}
+          <DetailRow label={t('Pattern')} value={ti.pattern} />
+          {ti.path && <DetailRow label={t('Path')} value={relativePath(ti.path, cwd)} />}
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} />}
         </div>
       )
     case 'Agent': {
@@ -897,9 +908,9 @@ function ToolDetail({
             rawName={agentRawName}
             agentId={spawnedAgentId}
           />
-          {ti.description && <DetailRow label="Task" value={ti.description} />}
-          {ti.prompt && <DetailCode label="Prompt" value={ti.prompt} />}
-          {agentResult && <DetailCode label="Result" value={agentResult} />}
+          {ti.description && <DetailRow label={t('Task')} value={ti.description} />}
+          {ti.prompt && <DetailCode label={t('Prompt')} value={ti.prompt} />}
+          {agentResult && <DetailCode label={t('Result')} value={agentResult} />}
         </div>
       )
     }
@@ -918,25 +929,25 @@ function ToolDetail({
             : JSON.stringify(ti.args, null, 2)
       return (
         <div className="space-y-1.5">
-          {ti.name && <DetailRow label="Workflow" value={String(ti.name)} />}
-          {wfResp?.status && <DetailRow label="Status" value={String(wfResp.status)} />}
-          {wfResp?.runId && <DetailRow label="Run ID" value={String(wfResp.runId)} />}
-          {wfResp?.taskId && <DetailRow label="Task ID" value={String(wfResp.taskId)} />}
-          {wfResp?.summary && <DetailRow label="Summary" value={String(wfResp.summary)} />}
-          {argsText && <DetailCode label="Args" value={argsText} />}
+          {ti.name && <DetailRow label={t('Workflow')} value={String(ti.name)} />}
+          {wfResp?.status && <DetailRow label={t('Status')} value={String(wfResp.status)} />}
+          {wfResp?.runId && <DetailRow label={t('Run ID')} value={String(wfResp.runId)} />}
+          {wfResp?.taskId && <DetailRow label={t('Task ID')} value={String(wfResp.taskId)} />}
+          {wfResp?.summary && <DetailRow label={t('Summary')} value={String(wfResp.summary)} />}
+          {argsText && <DetailCode label={t('Args')} value={argsText} />}
           {wfResp?.transcriptDir && (
-            <DetailRow label="Transcript" value={relativePath(wfResp.transcriptDir, cwd)} />
+            <DetailRow label={t('Transcript')} value={relativePath(wfResp.transcriptDir, cwd)} />
           )}
           {(wfResp?.scriptPath || ti.scriptPath) && (
             <DetailRow
-              label="Script"
+              label={t('Script')}
               value={relativePath(String(wfResp?.scriptPath ?? ti.scriptPath), cwd)}
             />
           )}
           {typeof ti.script === 'string' && ti.script && (
-            <DetailCode label="Source" value={ti.script} />
+            <DetailCode label={t('Source')} value={ti.script} />
           )}
-          {result && <DetailCode label="Result" value={formatResult(result)} />}
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} />}
         </div>
       )
     }
@@ -997,20 +1008,20 @@ function ToolDetail({
       const images = extractBase64Images(rawResponse)
       return (
         <div className="space-y-1.5">
-          {ti.description && <DetailRow label="Description" value={ti.description} />}
-          {result && <DetailCode label="Result" value={formatResult(result)} />}
+          {ti.description && <DetailRow label={t('Description')} value={ti.description} />}
+          {result && <DetailCode label={t('Result')} value={formatResult(result)} />}
           {images.map((img, i) => (
             // Matches DetailRow's layout: fixed-width label on the
             // left, value on the right. Keeps the image visually
             // aligned with the Description / Result rows above.
             <div key={i} className="flex gap-2">
               <span className="text-muted-foreground shrink-0 w-20 text-right">
-                {images.length > 1 ? `Image ${i + 1}:` : 'Image:'}
+                {images.length > 1 ? t('Image {n}:', { n: i + 1 }) : t('Image:')}
               </span>
               <div className="min-w-0 rounded-md border overflow-hidden bg-muted/30 flex items-center justify-center p-2">
                 <img
                   src={`data:${img.mediaType};base64,${img.data}`}
-                  alt="Tool response image"
+                  alt={t('Tool response image')}
                   className="max-w-full max-h-[480px] object-contain"
                 />
               </div>
@@ -1059,7 +1070,7 @@ function AgentIdentity({
     <>
       {displayName && (
         <div className="flex gap-2">
-          <span className="text-muted-foreground shrink-0 w-20 text-right">Agent:</span>
+          <span className="text-muted-foreground shrink-0 w-20 text-right">{t('Agent:')}</span>
           <span className="truncate">
             {displayName}
             {showRawName && (
@@ -1072,7 +1083,7 @@ function AgentIdentity({
       )}
       {showId && (
         <div className="flex gap-2">
-          <span className="text-muted-foreground shrink-0 w-20 text-right">Agent ID:</span>
+          <span className="text-muted-foreground shrink-0 w-20 text-right">{t('Agent ID:')}</span>
           <span className="truncate font-mono text-muted-foreground/80 dark:text-muted-foreground/60">
             {agentId}
           </span>
@@ -1123,7 +1134,7 @@ function AskUserQuestionBlock({
   return (
     <div className="space-y-1">
       <div className="flex gap-2">
-        <span className="text-muted-foreground shrink-0 w-20 text-right">Question:</span>
+        <span className="text-muted-foreground shrink-0 w-20 text-right">{t('Question:')}</span>
         <div className="min-w-0 flex-1 space-y-1">
           {questionText && <div>{questionText}</div>}
           {options.length > 0 && (
@@ -1156,7 +1167,7 @@ function AskUserQuestionBlock({
       </div>
       {answer != null && (
         <div className="flex gap-2">
-          <span className="text-muted-foreground shrink-0 w-20 text-right">Answer:</span>
+          <span className="text-muted-foreground shrink-0 w-20 text-right">{t('Answer:')}</span>
           <div
             className={cn(
               'min-w-0 flex-1 whitespace-pre-wrap break-words',
@@ -1198,11 +1209,11 @@ function StructuredOutputDetail({ data, error }: { data: Record<string, any>; er
   const hasRest = Object.keys(rest).length > 0
   return (
     <div className="space-y-1.5">
-      {summary && <DetailCode label="Summary" value={summary} />}
-      {reasoning && <DetailCode label="Reasoning" value={reasoning} />}
-      {refinedFix && <DetailCode label="Refined fix" value={refinedFix} />}
-      {hasRest && <DetailCode label="Output" value={JSON.stringify(rest, null, 2)} />}
-      {error && <DetailCode label="Error" value={error} />}
+      {summary && <DetailCode label={t('Summary')} value={summary} />}
+      {reasoning && <DetailCode label={t('Reasoning')} value={reasoning} />}
+      {refinedFix && <DetailCode label={t('Refined fix')} value={refinedFix} />}
+      {hasRest && <DetailCode label={t('Output')} value={JSON.stringify(rest, null, 2)} />}
+      {error && <DetailCode label={t('Error')} value={error} />}
     </div>
   )
 }
@@ -1236,11 +1247,11 @@ function DetailCode({ label, value, diff }: { label: string; value?: string; dif
     >
       {copied ? (
         <>
-          Copied <Check className="h-2.5 w-2.5 text-green-500" />
+          {t('Copied')} <Check className="h-2.5 w-2.5 text-green-500" />
         </>
       ) : (
         <>
-          Copy <Copy className="h-2.5 w-2.5" />
+          {t('Copy')} <Copy className="h-2.5 w-2.5" />
         </>
       )}
     </button>
@@ -1320,11 +1331,13 @@ function DiffPre({ value }: { value: string }) {
 function DetailDiff({ oldValue, newValue }: { oldValue: string; newValue: string }) {
   return (
     <div className="flex gap-2">
-      <span className="text-muted-foreground shrink-0 w-20 text-right">Diff:</span>
+      <span className="text-muted-foreground shrink-0 w-20 text-right">{t('Diff:')}</span>
       <div className="flex-1 min-w-0 overflow-x-auto rounded bg-muted/50 max-h-60 overflow-y-auto [&_table]:!bg-transparent text-[10px]">
         <Suspense
           fallback={
-            <pre className="p-1.5 font-mono text-[10px] leading-relaxed">Loading diff...</pre>
+            <pre className="p-1.5 font-mono text-[10px] leading-relaxed">
+              {t('Loading diff...')}
+            </pre>
           }
         >
           <ReactDiffViewer
@@ -1386,7 +1399,7 @@ function ThreadEvent({
     <div
       role="button"
       tabIndex={0}
-      title="Scroll to this event in the stream"
+      title={t('Scroll to this event in the stream')}
       onClick={scrollToEvent}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

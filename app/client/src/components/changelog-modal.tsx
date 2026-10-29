@@ -6,6 +6,7 @@ import { Github, X, ExternalLink } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import { isNewerVersion } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
+import { t } from '@/lib/i18n'
 
 interface ChangelogModalProps {
   open: boolean
@@ -70,11 +71,11 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
         className="w-[700px] max-w-[90vw] max-h-[80vh] flex flex-col p-0"
       >
         <div className="flex items-center px-6 pt-6 pb-0">
-          <DialogTitle>Changelog</DialogTitle>
+          <DialogTitle>{t('Changelog')}</DialogTitle>
           <span className="ml-2 text-xs text-muted-foreground">v{__APP_VERSION__}</span>
           {latestVersion && !versionMismatch && !outdated && (
             <span className="ml-1.5 text-[10px] text-green-600 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-full">
-              up to date
+              {t('up to date')}
             </span>
           )}
           <div className="flex items-center gap-1 ml-auto">
@@ -84,14 +85,14 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
                   href={__GITHUB_REPO_URL__}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="View on GitHub"
+                  title={t('View on GitHub')}
                 >
                   <Github className="h-4 w-4" />
                 </a>
               </Button>
             )}
             <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Close">
+              <Button variant="ghost" size="icon" className="h-7 w-7" title={t('Close')}>
                 <X className="h-4 w-4" />
               </Button>
             </DialogClose>
@@ -101,13 +102,14 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
         {versionMismatch && (
           <div className="mx-6 mt-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-sm">
             <span className="text-red-600 dark:text-red-400">
-              Version mismatch: the dashboard is <strong>v{__APP_VERSION__}</strong> but the server
-              is <strong>v{serverVersion}</strong>. Some features may not work correctly. Restart
-              the server or reinstall the plugin to fix this.
+              {t(
+                'Version mismatch: the dashboard is v{client} but the server is v{server}. Some features may not work correctly. Restart the server or reinstall the plugin to fix this.',
+                { client: __APP_VERSION__, server: serverVersion ?? '' },
+              )}
               {__GITHUB_REPO_URL__ && (
                 <>
                   {' '}
-                  See the{' '}
+                  {t('See the')}{' '}
                   <a
                     href={__GITHUB_REPO_URL__}
                     target="_blank"
@@ -116,7 +118,7 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
                   >
                     README
                   </a>{' '}
-                  for details.
+                  {t('for details.')}
                 </>
               )}
             </span>
@@ -126,8 +128,10 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
         {outdated && changelogUrl && !versionMismatch && (
           <div className="mx-6 mt-3 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm flex items-start gap-2">
             <span className="text-yellow-600 dark:text-yellow-400">
-              A newer version is available: <strong>v{latestVersion}</strong> (you're running v
-              {__APP_VERSION__}).
+              {t("A newer version is available: v{latest} (you're running v{current}).", {
+                latest: latestVersion ?? '',
+                current: __APP_VERSION__,
+              })}
             </span>
             <a
               href={changelogUrl}
@@ -135,16 +139,16 @@ export function ChangelogModal({ open, onOpenChange }: ChangelogModalProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-yellow-700 dark:text-yellow-300 hover:underline whitespace-nowrap shrink-0"
             >
-              View changelog <ExternalLink className="h-3 w-3" />
+              {t('View changelog')} <ExternalLink className="h-3 w-3" />
             </a>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2">
           {markdown === null && !error && (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">{t('Loading...')}</p>
           )}
-          {error && <p className="text-sm text-destructive">Failed to load changelog.</p>}
+          {error && <p className="text-sm text-destructive">{t('Failed to load changelog.')}</p>}
           {markdown && <Markdown components={mdComponents}>{markdown}</Markdown>}
         </div>
       </DialogContent>

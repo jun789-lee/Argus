@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { t } from '@/lib/i18n'
 
 /**
  * Bordered section with a compact preview and an expand-in-place
@@ -32,7 +33,7 @@ export function CollapsibleSection({
           onClick={() => setExpanded((e) => !e)}
           className="w-full border-t border-border/60 py-1.5 text-[11px] text-muted-foreground hover:text-amber-500 hover:bg-muted/30 transition-colors flex items-center justify-center gap-1"
         >
-          {expanded ? 'Hide details' : 'View details'}
+          {expanded ? t('Hide details') : t('View details')}
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       )}

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 // ---------------------------------------------------------------------------
 // Notification store
@@ -444,7 +445,8 @@ export function NotificationIndicator({
   title,
 }: NotificationIndicatorProps) {
   const size = compact ? 'h-3 w-3' : 'h-3.5 w-3.5'
-  const resolvedTitle = title ?? (onClick ? 'Click to dismiss' : 'Waiting for your input')
+  const t = useT()
+  const resolvedTitle = title ?? (onClick ? t('Click to dismiss') : t('Waiting for your input'))
   const body = (
     <>
       <span

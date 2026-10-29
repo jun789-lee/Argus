@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@ta
 import { Toaster, toast } from 'sonner'
 import { App } from './App'
 import { ApiError } from './lib/api-client'
+import { t } from './lib/i18n'
 import './agents/init'
 import './index.css'
 
@@ -12,11 +13,11 @@ import './index.css'
 function handleQueryError(error: unknown) {
   if (error instanceof ApiError) {
     const description = error.path ? `${error.path} → ${error.message}` : error.message
-    toast.error('API error', { description, duration: Infinity })
+    toast.error(t('API error'), { description, duration: Infinity })
   } else if (error instanceof Error) {
-    toast.error('Unexpected error', { description: error.message, duration: Infinity })
+    toast.error(t('Unexpected error'), { description: error.message, duration: Infinity })
   } else {
-    toast.error('Unknown error', { duration: Infinity })
+    toast.error(t('Unknown error'), { duration: Infinity })
   }
 }
 

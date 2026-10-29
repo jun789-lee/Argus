@@ -18,6 +18,7 @@ import { ModelBadge } from './model-badge'
 import { SortableTable, type SortableColumn } from './sortable-table'
 import type { AgentTokenUsage } from '../session-modal'
 import { getServerHealth } from '@/lib/server-health'
+import { t as tr } from '@/lib/i18n'
 
 function fmt(n: number): string {
   return n.toLocaleString()
@@ -91,31 +92,31 @@ function CostCell({
     cost: number
   }> = [
     {
-      label: 'Input',
+      label: tr('Input'),
       tokens: fresh,
       rates: pricings.map((p) => p.inputPerM),
       cost: (fresh * pricings[0].inputPerM) / 1_000_000,
     },
     {
-      label: 'Output',
+      label: tr('Output'),
       tokens: outputTokens,
       rates: pricings.map((p) => p.outputPerM),
       cost: (outputTokens * pricings[0].outputPerM) / 1_000_000,
     },
     {
-      label: 'Cache read',
+      label: tr('Cache read'),
       tokens: cacheReadTokens,
       rates: pricings.map((p) => p.cacheReadPerM),
       cost: (cacheReadTokens * pricings[0].cacheReadPerM) / 1_000_000,
     },
     {
-      label: 'Cache write (5m)',
+      label: tr('Cache write (5m)'),
       tokens: cacheCreate5mTokens,
       rates: pricings.map((p) => p.cacheCreate5mPerM),
       cost: (cacheCreate5mTokens * pricings[0].cacheCreate5mPerM) / 1_000_000,
     },
     {
-      label: 'Cache write (1h)',
+      label: tr('Cache write (1h)'),
       tokens: cacheCreate1hTokens,
       rates: pricings.map((p) => p.cacheCreate1hPerM),
       cost: (cacheCreate1hTokens * pricings[0].cacheCreate1hPerM) / 1_000_000,
@@ -136,15 +137,16 @@ function CostCell({
           className="!bg-popover !text-popover-foreground border border-amber-500 max-w-md p-3 shadow-md"
         >
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground mb-2">
-            Cost breakdown{multi && ' · multiple models'}
+            {tr('Cost breakdown')}
+            {multi && ` · ${tr('multiple models')}`}
           </div>
           <table className="font-mono text-[11px] border-separate" style={{ borderSpacing: '0 0' }}>
             <thead>
               <tr className="text-muted-foreground">
-                <th className="text-left font-normal pb-1.5 pr-4">Item</th>
-                <th className="text-right font-normal pb-1.5 px-4">Tokens</th>
-                <th className="text-right font-normal pb-1.5 px-4">Rate ($/M)</th>
-                {!multi && <th className="text-right font-normal pb-1.5 pl-4">Cost</th>}
+                <th className="text-left font-normal pb-1.5 pr-4">{tr('Item')}</th>
+                <th className="text-right font-normal pb-1.5 px-4">{tr('Tokens')}</th>
+                <th className="text-right font-normal pb-1.5 px-4">{tr('Rate ($/M)')}</th>
+                {!multi && <th className="text-right font-normal pb-1.5 pl-4">{tr('Cost')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -163,7 +165,7 @@ function CostCell({
                   className="pt-2 text-muted-foreground uppercase text-[9px] pr-4"
                   colSpan={totalColSpan}
                 >
-                  Total
+                  {tr('Total')}
                 </td>
                 <td
                   className={`pt-2 text-right text-amber-500 font-medium ${multi ? 'px-4' : 'pl-4'}`}
@@ -374,7 +376,7 @@ export function TokenUsageSection({
         ? [
             {
               key: 'model',
-              label: 'Model',
+              label: tr('Model'),
               sortType: 'string',
               render: (r) => (
                 <ModelBadge modelId={r.model} pricing={transcript.models[r.model]?.pricing} />
@@ -383,7 +385,7 @@ export function TokenUsageSection({
             },
             {
               key: 'calls',
-              label: 'Requests',
+              label: tr('Requests'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.calls),
@@ -391,7 +393,7 @@ export function TokenUsageSection({
             },
             {
               key: 'input',
-              label: 'Input',
+              label: tr('Input'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.inputTokens),
@@ -399,7 +401,7 @@ export function TokenUsageSection({
             },
             {
               key: 'output',
-              label: 'Output',
+              label: tr('Output'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.outputTokens),
@@ -407,7 +409,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cachePct',
-              label: 'Cache %',
+              label: tr('Cache %'),
               sortType: 'number',
               align: 'right',
               render: (r) =>
@@ -422,7 +424,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cacheRead',
-              label: 'Cache read',
+              label: tr('Cache read'),
               sortType: 'number',
               align: 'right',
               render: (r) => (
@@ -433,7 +435,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cacheWrite',
-              label: 'Cache write',
+              label: tr('Cache write'),
               sortType: 'number',
               align: 'right',
               render: (r) => (
@@ -445,7 +447,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cost',
-              label: 'Est Cost',
+              label: tr('Est Cost'),
               sortType: 'number',
               align: 'right',
               render: (r) => {
@@ -477,7 +479,7 @@ export function TokenUsageSection({
         ? [
             {
               key: 'prompt',
-              label: 'Prompt',
+              label: tr('Prompt'),
               count: transcript.prompts.length,
               sortType: 'string',
               render: (r) => {
@@ -505,7 +507,7 @@ export function TokenUsageSection({
                   return (
                     <span
                       className="block text-muted-foreground/50"
-                      title={`${label}\n\n(no matching event — pre-plugin prompt)`}
+                      title={`${label}\n\n${tr('(no matching event — pre-plugin prompt)')}`}
                     >
                       {body}
                     </span>
@@ -526,7 +528,7 @@ export function TokenUsageSection({
             },
             {
               key: 'date',
-              label: 'Date',
+              label: tr('Date'),
               sortType: 'number',
               align: 'right',
               // Display is "<elapsed> ago" frozen at panel-mount time; sort
@@ -538,7 +540,7 @@ export function TokenUsageSection({
             },
             {
               key: 'duration',
-              label: 'Duration',
+              label: tr('Duration'),
               sortType: 'number',
               align: 'right',
               render: (r) => (r.durationMs == null ? '—' : fmtMs(r.durationMs)),
@@ -547,7 +549,7 @@ export function TokenUsageSection({
             },
             {
               key: 'tools',
-              label: 'Tools',
+              label: tr('Tools'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.toolCount),
@@ -555,7 +557,7 @@ export function TokenUsageSection({
             },
             {
               key: 'requests',
-              label: 'Requests',
+              label: tr('Requests'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.requests),
@@ -563,7 +565,7 @@ export function TokenUsageSection({
             },
             {
               key: 'input',
-              label: 'Input',
+              label: tr('Input'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.inputTokens),
@@ -571,7 +573,7 @@ export function TokenUsageSection({
             },
             {
               key: 'output',
-              label: 'Output',
+              label: tr('Output'),
               sortType: 'number',
               align: 'right',
               render: (r) => fmt(r.outputTokens),
@@ -579,7 +581,7 @@ export function TokenUsageSection({
             },
             {
               key: 'models',
-              label: 'Model',
+              label: tr('Model'),
               sortType: 'string',
               render: (r) => (
                 <span className="flex flex-wrap gap-1">
@@ -592,7 +594,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cost',
-              label: 'Est Cost',
+              label: tr('Est Cost'),
               sortType: 'number',
               align: 'right',
               render: (r) => {
@@ -642,7 +644,7 @@ export function TokenUsageSection({
     () => [
       {
         key: 'agent',
-        label: 'Agent',
+        label: tr('Agent'),
         count: agentRows.length,
         sortType: 'string',
         render: (r) =>
@@ -660,14 +662,14 @@ export function TokenUsageSection({
       },
       {
         key: 'type',
-        label: 'Type',
+        label: tr('Type'),
         sortType: 'string',
         render: (r) => <span className="text-blue-300">{r.agentType ?? '—'}</span>,
         sortValue: (r) => r.agentType ?? '',
       },
       {
         key: 'duration',
-        label: 'Duration',
+        label: tr('Duration'),
         sortType: 'number',
         align: 'right',
         render: (r) => (r.durationMs > 0 ? fmtMs(r.durationMs) : '—'),
@@ -676,7 +678,7 @@ export function TokenUsageSection({
       },
       {
         key: 'tools',
-        label: 'Tools',
+        label: tr('Tools'),
         sortType: 'number',
         align: 'right',
         render: (r) => (r.toolCount > 0 ? fmt(r.toolCount) : '—'),
@@ -684,7 +686,7 @@ export function TokenUsageSection({
       },
       {
         key: 'requests',
-        label: 'Requests',
+        label: tr('Requests'),
         sortType: 'number',
         align: 'right',
         render: (r) => (r.requests == null ? '—' : fmt(r.requests)),
@@ -692,7 +694,7 @@ export function TokenUsageSection({
       },
       {
         key: 'input',
-        label: 'Input',
+        label: tr('Input'),
         sortType: 'number',
         align: 'right',
         render: (r) => (r.inputTokens == null ? '—' : fmt(r.inputTokens)),
@@ -700,7 +702,7 @@ export function TokenUsageSection({
       },
       {
         key: 'output',
-        label: 'Output',
+        label: tr('Output'),
         sortType: 'number',
         align: 'right',
         render: (r) => (r.outputTokens == null ? '—' : fmt(r.outputTokens)),
@@ -710,7 +712,7 @@ export function TokenUsageSection({
         ? ([
             {
               key: 'model',
-              label: 'Model',
+              label: tr('Model'),
               sortType: 'string',
               render: (r) =>
                 r.model && transcript ? (
@@ -722,7 +724,7 @@ export function TokenUsageSection({
             },
             {
               key: 'cost',
-              label: 'Est Cost',
+              label: tr('Est Cost'),
               sortType: 'number',
               align: 'right',
               render: (r) => {
@@ -757,7 +759,7 @@ export function TokenUsageSection({
   const agentFooter = useMemo(() => {
     const agentTotalCell = (
       <span className="uppercase text-[9px] tracking-wide">
-        Total
+        {tr('Total')}
         <span className="ml-1.5 text-muted-foreground/50 normal-case">({agentRows.length})</span>
       </span>
     )
@@ -790,16 +792,16 @@ export function TokenUsageSection({
   // the main agent's token usage isn't recoverable from events alone.
   const summaryCards = transcript ? (
     <div className="grid grid-cols-5 gap-2">
-      <Card label="Requests" value={fmt(transcript.summary.totalCalls)} />
-      <Card label="Total Input" value={fmt(transcript.summary.inputTotal)} />
-      <Card label="Total Output" value={fmt(transcript.summary.outputTotal)} />
+      <Card label={tr('Requests')} value={fmt(transcript.summary.totalCalls)} />
+      <Card label={tr('Total Input')} value={fmt(transcript.summary.inputTotal)} />
+      <Card label={tr('Total Output')} value={fmt(transcript.summary.outputTotal)} />
       <Card
-        label="Cache Hit"
+        label={tr('Cache Hit')}
         value={fmtPct(transcript.summary.cacheHitRate)}
         valueClass="text-green-500"
       />
       <Card
-        label="Est Cost"
+        label={tr('Est Cost')}
         value={fmtCents(transcript.summary.costTotalCents)}
         valueClass="text-amber-500"
       />
@@ -813,23 +815,23 @@ export function TokenUsageSection({
       const cacheHitRate = inputTotal > 0 ? cacheRead / inputTotal : 0
       return (
         <div className="grid grid-cols-3 gap-2">
-          <Card label="Total Input" value={fmt(inputTotal)} />
-          <Card label="Total Output" value={fmt(outputTotal)} />
-          <Card label="Cache Hit" value={fmtPct(cacheHitRate)} valueClass="text-green-500" />
+          <Card label={tr('Total Input')} value={fmt(inputTotal)} />
+          <Card label={tr('Total Output')} value={fmt(outputTotal)} />
+          <Card label={tr('Cache Hit')} value={fmtPct(cacheHitRate)} valueClass="text-green-500" />
         </div>
       )
     })()
   )
 
   return (
-    <SectionShell title={hasTranscript ? 'Token Usage' : 'Token Usage (Sub-agents Only)'}>
+    <SectionShell title={hasTranscript ? tr('Token Usage') : tr('Token Usage (Sub-agents Only)')}>
       <div className="space-y-6">
         {summaryCards}
 
         {transcript && (
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-              By Model
+              {tr('By Model')}
             </div>
             <SortableTable
               rows={transcript.byModel}
@@ -841,7 +843,7 @@ export function TokenUsageSection({
 
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-            By Agent
+            {tr('By Agent')}
           </div>
           <SortableTable
             // Remount when transcript/no-transcript mode flips so the
@@ -860,11 +862,11 @@ export function TokenUsageSection({
         {transcript && promptTotals && (
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-              By Prompt
+              {tr('By Prompt')}
             </div>
             {transcript.prompts.length === 0 ? (
               <div className="text-xs text-muted-foreground italic">
-                No prompts in this session.
+                {tr('No prompts in this session.')}
               </div>
             ) : (
               <SortableTable
@@ -880,7 +882,7 @@ export function TokenUsageSection({
                 rowClassName={(r) => (r.requests === 0 ? 'opacity-50' : '')}
                 footer={[
                   <span className="uppercase text-[9px] tracking-wide">
-                    Total
+                    {tr('Total')}
                     <span className="ml-1.5 text-muted-foreground/50 normal-case">
                       ({transcript.prompts.length})
                     </span>
@@ -916,7 +918,7 @@ export function TokenUsageSection({
         )}
         {!isInjected && transcriptStatsEnabled && isLoading && !transcript && !transcriptError && (
           <div className="text-[11px] text-muted-foreground/70 italic">
-            Loading model + cost data…
+            {tr('Loading model + cost data…')}
           </div>
         )}
       </div>

@@ -7,11 +7,13 @@ import { api } from '@/lib/api-client'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SessionItem } from './session-item'
 import type { Session } from '@/types'
+import { useT } from '@/lib/i18n'
 
 export function PinnedSessions({ collapsed }: { collapsed: boolean }) {
   const pinnedIds = useUIStore((s) => s.pinnedSessionIds)
   const selectedSessionId = useUIStore((s) => s.selectedSessionId)
   const togglePinnedSession = useUIStore((s) => s.togglePinnedSession)
+  const t = useT()
   const queryClient = useQueryClient()
 
   const queries = useQueries({
@@ -70,7 +72,7 @@ export function PinnedSessions({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="px-2 py-1">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80 dark:text-muted-foreground/60 px-2 pb-0.5 select-none">
-        Pinned
+        {t('Pinned')}
       </div>
       {sessions.map((session) => (
         <SessionItem

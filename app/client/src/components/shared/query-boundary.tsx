@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Spinner, EmptyState, ErrorState } from './loading-states'
+import { t } from '@/lib/i18n'
 
 /**
  * Minimal query state shape that QueryBoundary consumes. Compatible with
@@ -51,7 +52,7 @@ export function QueryBoundary<T>({
 }: QueryBoundaryProps<T>) {
   // Loading: first fetch, no data yet
   if (query.isLoading && query.data === undefined) {
-    return <>{loading ?? <Spinner label="Loading..." />}</>
+    return <>{loading ?? <Spinner label={t('Loading...')} />}</>
   }
 
   // Error: query failed with no cached data to show
@@ -63,7 +64,7 @@ export function QueryBoundary<T>({
 
   // No data (shouldn't happen in practice but narrow the type)
   if (query.data === undefined) {
-    return <>{loading ?? <Spinner label="Loading..." />}</>
+    return <>{loading ?? <Spinner label={t('Loading...')} />}</>
   }
 
   // Empty: data loaded but caller considers it empty

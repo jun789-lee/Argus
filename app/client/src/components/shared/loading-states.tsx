@@ -1,6 +1,7 @@
 import { AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
+import { t } from '@/lib/i18n'
 
 /**
  * Small centered spinner with optional label.
@@ -79,7 +80,7 @@ export function ErrorState({ message, className }: { message?: string; className
       )}
     >
       <AlertCircle className="h-4 w-4" />
-      <div>{message || 'Something went wrong'}</div>
+      <div>{message || t('Something went wrong')}</div>
     </div>
   )
 }

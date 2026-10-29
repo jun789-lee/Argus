@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { t } from '@/lib/i18n'
 
 interface CopyButtonProps {
   /** Text written to the clipboard on click. */
@@ -50,10 +51,10 @@ export function CopyButton({
         copied && 'opacity-60 hover:opacity-100',
       )}
       onClick={handleClick}
-      title={copied ? 'Copied!' : title}
+      title={copied ? t('Copied!') : title}
     >
       {copied ? <Check className="h-3 w-3 shrink-0 text-green-500" /> : icon ? icon : null}
-      <span className="truncate">{copied ? 'Copied!' : label}</span>
+      <span className="truncate">{copied ? t('Copied!') : label}</span>
     </button>
   )
 }

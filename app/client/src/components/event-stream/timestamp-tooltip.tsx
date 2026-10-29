@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { format as timeago } from 'timeago.js'
+import { timeAgo as timeago } from '@/lib/i18n'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type TooltipCallbacks = {

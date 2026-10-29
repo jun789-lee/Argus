@@ -1,5 +1,6 @@
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import type { TranscriptStatsModelPricing } from '@/lib/api-client'
+import { t } from '@/lib/i18n'
 
 /**
  * Format a model id for badge display.
@@ -63,36 +64,36 @@ export function ModelBadge({
           <div className="font-mono text-[11px] text-foreground mb-1 break-all">{modelId}</div>
           {effort && (
             <div className="text-[10px] text-muted-foreground mb-2">
-              Reasoning effort: <span className="text-foreground">{effort}</span>
+              {t('Reasoning effort:')} <span className="text-foreground">{effort}</span>
             </div>
           )}
           {pricing ? (
             <>
               <div className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-                Pricing · per million tokens
+                {t('Pricing · per million tokens')}
               </div>
               <table className="w-full font-mono text-[11px]">
                 <tbody>
                   <tr>
-                    <td className="text-muted-foreground py-0.5">Input</td>
+                    <td className="text-muted-foreground py-0.5">{t('Input')}</td>
                     <td className="text-right text-foreground">{fmtUsd(pricing.inputPerM)}</td>
                   </tr>
                   <tr>
-                    <td className="text-muted-foreground py-0.5">Output</td>
+                    <td className="text-muted-foreground py-0.5">{t('Output')}</td>
                     <td className="text-right text-foreground">{fmtUsd(pricing.outputPerM)}</td>
                   </tr>
                   <tr>
-                    <td className="text-muted-foreground py-0.5">Cache read</td>
+                    <td className="text-muted-foreground py-0.5">{t('Cache read')}</td>
                     <td className="text-right text-foreground">{fmtUsd(pricing.cacheReadPerM)}</td>
                   </tr>
                   <tr>
-                    <td className="text-muted-foreground py-0.5">Cache write (5m)</td>
+                    <td className="text-muted-foreground py-0.5">{t('Cache write (5m)')}</td>
                     <td className="text-right text-foreground">
                       {fmtUsd(pricing.cacheCreate5mPerM)}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted-foreground py-0.5">Cache write (1h)</td>
+                    <td className="text-muted-foreground py-0.5">{t('Cache write (1h)')}</td>
                     <td className="text-right text-foreground">
                       {fmtUsd(pricing.cacheCreate1hPerM)}
                     </td>
@@ -100,12 +101,12 @@ export function ModelBadge({
                 </tbody>
               </table>
               <div className="mt-2 text-[9px] italic text-muted-foreground">
-                Pricing from models.dev · refreshed daily
+                {t('Pricing from models.dev · refreshed daily')}
               </div>
             </>
           ) : (
             <div className="text-[10px] text-muted-foreground italic">
-              Pricing not available for this model.
+              {t('Pricing not available for this model.')}
             </div>
           )}
         </TooltipContent>

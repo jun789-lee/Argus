@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getAgentDisplayName } from '@/lib/agent-utils'
 import { AgentClassIcon, agentClassDisplayName } from '@/components/shared/agent-class-icon'
 import type { Agent } from '@/types'
+import { t } from '@/lib/i18n'
 
 interface AgentLabelProps {
   agent: Agent
@@ -60,10 +61,14 @@ function AgentLabelInner({
               <span dir="ltr">{agent.cwd.replace(/^\/(?:Users|home)\/[^/]+/, '~')}</span>
             </span>
           )}
-          {agent.agentType && <span className="opacity-70">Type: {agent.agentType}</span>}
+          {agent.agentType && (
+            <span className="opacity-70">{t('Type: {type}', { type: agent.agentType })}</span>
+          )}
           {agent.parentAgentId && (
             <span className="text-[10px] opacity-50">
-              Sub of {parentAgent ? getAgentDisplayName(parentAgent) : 'Main'}
+              {t('Sub of {parent}', {
+                parent: parentAgent ? getAgentDisplayName(parentAgent) : t('Main'),
+              })}
             </span>
           )}
         </div>

@@ -20,20 +20,13 @@ import {
   useAnyFlaggedInProject,
 } from './notification-indicator'
 import type { Project, Session } from '@/types'
+import { localizeDateGroup, shortTimeAgo, useT } from '@/lib/i18n'
 
 interface ProjectListProps {
   collapsed: boolean
 }
 
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+const formatRelativeTime = shortTimeAgo
 
 function getDateGroupLabel(ts: number): string {
   const now = new Date()
@@ -125,6 +118,7 @@ export function ProjectList({ collapsed }: ProjectListProps) {
   const { data: projects } = useProjects()
   const { selectedProjectId, setSelectedProject } = useUIStore()
   const previewProjectId = useUIStore((s) => s.previewProjectId)
+  const t = useT()
 
   const [modalProjectId, setModalProjectId] = useState<number | null>(null)
   const modalProject = projects?.find((p) => p.id === modalProjectId) ?? null
@@ -146,7 +140,7 @@ export function ProjectList({ collapsed }: ProjectListProps) {
     return (
       <TooltipProvider>
         <div className="text-xs text-muted-foreground p-2">
-          {collapsed ? '' : 'No projects yet'}
+          {collapsed ? '' : t('No projects yet')}
         </div>
       </TooltipProvider>
     )
@@ -228,7 +222,7 @@ export function ProjectList({ collapsed }: ProjectListProps) {
                   onClick={(e) => openProjectModal(project, e)}
                 >
                   <Pencil className="h-2.5 w-2.5" />
-                  Edit
+                  {t('Edit')}
                 </span>
               </div>
               {isExpanded && <SessionList projectId={project.id} />}
@@ -259,6 +253,7 @@ function UnassignedBucket({ sessions, collapsed }: { sessions: Session[]; collap
   const [expanded, setExpanded] = useState(true)
   const { selectedSessionId, setSelectedSessionId, setEditingSessionId } = useUIStore()
   const previewSessionId = useUIStore((s) => s.previewSessionId)
+  const t = useT()
 
   if (collapsed) {
     return (
@@ -268,12 +263,14 @@ function UnassignedBucket({ sessions, collapsed }: { sessions: Session[]; collap
             data-testid="unassigned-bucket-collapsed"
             className="relative flex h-8 w-8 mx-auto items-center justify-center rounded-md text-xs cursor-pointer text-muted-foreground/70 hover:bg-accent"
             onClick={() => setExpanded((v) => !v)}
-            aria-label="Unassigned sessions"
+            aria-label={t('Unassigned sessions')}
           >
             <Folder className="h-4 w-4" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="right">Unassigned ({sessions.length})</TooltipContent>
+        <TooltipContent side="right">
+          {t('Unassigned')} ({sessions.length})
+        </TooltipContent>
       </Tooltip>
     )
   }
@@ -302,7 +299,7 @@ function UnassignedBucket({ sessions, collapsed }: { sessions: Session[]; collap
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
         )}
         <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <span className="truncate italic">Unassigned</span>
+        <span className="truncate italic">{t('Unassigned')}</span>
         <Badge variant="secondary" className="ml-auto text-[10px] h-4 px-1">
           {sessions.length}
         </Badge>
@@ -400,13 +397,14 @@ function ProjectNotificationDot({
   className?: string
 }) {
   const { any, sessionIds } = useAnyFlaggedInProject(projectId)
+  const t = useT()
   if (!any) return null
   return (
     <button
       type="button"
       className={`relative flex h-2 w-2 items-center justify-center rounded-full bg-amber-500 cursor-pointer ${className ?? ''}`}
-      aria-label="Click to dismiss notifications"
-      title="Click to dismiss notifications"
+      aria-label={t('Click to dismiss notifications')}
+      title={t('Click to dismiss notifications')}
       onClick={(e) => {
         e.stopPropagation()
         dismissNotifications(sessionIds)
@@ -431,6 +429,7 @@ function SessionList({ projectId }: { projectId: number }) {
   const previewSessionId = useUIStore((s) => s.previewSessionId)
   const queryClient = useQueryClient()
   const { data: currentEvents } = useEvents(selectedSessionId)
+  const t = useT()
 
   const handleRename = useCallback(
     async (sessionId: string, name: string) => {
@@ -460,7 +459,7 @@ function SessionList({ projectId }: { projectId: number }) {
   }, [])
 
   if (!sessions?.length) {
-    return <div className="text-xs text-muted-foreground pl-6 py-1">No sessions</div>
+    return <div className="text-xs text-muted-foreground pl-6 py-1">{t('No sessions')}</div>
   }
 
   return (
@@ -477,7 +476,7 @@ function SessionList({ projectId }: { projectId: number }) {
           <div key={group.label} className={groupIndex > 0 ? 'mt-3' : ''}>
             <div className="flex items-center px-2 pt-0 pb-0.5 select-none">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/50 dark:text-muted-foreground/30">
-                {group.label}
+                {localizeDateGroup(group.label)}
               </span>
               {groupIndex === 0 && (
                 <Tooltip>
@@ -492,19 +491,19 @@ function SessionList({ projectId }: { projectId: number }) {
                     >
                       {sessionSortOrder === 'activity' ? (
                         <>
-                          <Clock className="h-3 w-3" /> Recent
+                          <Clock className="h-3 w-3" /> {t('Recent')}
                         </>
                       ) : (
                         <>
-                          <CalendarDays className="h-3 w-3" /> Created
+                          <CalendarDays className="h-3 w-3" /> {t('Created')}
                         </>
                       )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-xs">
                     {sessionSortOrder === 'activity'
-                      ? 'Sorted by recent activity'
-                      : 'Sorted by creation date'}
+                      ? t('Sorted by recent activity')
+                      : t('Sorted by creation date')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -550,7 +549,7 @@ function SessionList({ projectId }: { projectId: number }) {
                 className="w-full text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
                 onClick={() => toggleGroup(group.label)}
               >
-                Show {hiddenCount} more...
+                {t('Show {n} more...', { n: hiddenCount })}
               </button>
             )}
             {shouldCollapse &&
@@ -561,7 +560,7 @@ function SessionList({ projectId }: { projectId: number }) {
                   className="w-full text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
                   onClick={() => toggleGroup(group.label)}
                 >
-                  Show less
+                  {t('Show less')}
                 </button>
               )}
           </div>

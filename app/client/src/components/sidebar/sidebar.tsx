@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SettingsModal } from '@/components/settings/settings-modal'
 import { ChangelogModal } from '@/components/changelog-modal'
+import { useT } from '@/lib/i18n'
 
 interface SidebarProps {
   connected: boolean
@@ -18,6 +19,7 @@ interface SidebarProps {
 export function Sidebar({ connected }: SidebarProps) {
   const { sidebarCollapsed, sidebarWidth, setSidebarCollapsed, setSidebarWidth } = useUIStore()
   const latestVersion = useUIStore((s) => s.latestVersion)
+  const t = useT()
   const serverVersion = useUIStore((s) => s.serverVersion)
   const outdated = latestVersion ? isNewerVersion(__APP_VERSION__, latestVersion) : false
   const versionMismatch = serverVersion ? serverVersion !== __APP_VERSION__ : false
@@ -140,12 +142,12 @@ export function Sidebar({ connected }: SidebarProps) {
             {connected ? (
               <>
                 <Wifi className="h-3 w-3 text-green-500" />
-                <span>Connected</span>
+                <span>{t('Connected')}</span>
               </>
             ) : (
               <>
                 <WifiOff className="h-3 w-3 text-destructive" />
-                <span>Disconnected</span>
+                <span>{t('Disconnected')}</span>
               </>
             )}
             <span

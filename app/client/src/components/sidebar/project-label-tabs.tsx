@@ -2,6 +2,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useUIStore } from '@/stores/ui-store'
 import { ProjectList } from './project-list'
 import { LabelList } from './label-list'
+import { useT } from '@/lib/i18n'
 
 interface ProjectLabelTabsProps {
   collapsed: boolean
@@ -15,6 +16,7 @@ interface ProjectLabelTabsProps {
 export function ProjectLabelTabs({ collapsed }: ProjectLabelTabsProps) {
   const sidebarTab = useUIStore((s) => s.sidebarTab)
   const setSidebarTab = useUIStore((s) => s.setSidebarTab)
+  const t = useT()
 
   if (collapsed) {
     // Narrow sidebar: render whichever view is active, without the tab
@@ -31,10 +33,10 @@ export function ProjectLabelTabs({ collapsed }: ProjectLabelTabsProps) {
     >
       <TabsList className="w-full mt-2 h-7">
         <TabsTrigger value="projects" className="flex-1 text-xs">
-          Projects
+          {t('Projects')}
         </TabsTrigger>
         <TabsTrigger value="labels" className="flex-1 text-xs">
-          Labels
+          {t('Labels')}
         </TabsTrigger>
       </TabsList>
       <TabsContent value="projects" className="mt-1">

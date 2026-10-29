@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { ParsedEvent } from '@/types'
+import { t } from '@/lib/i18n'
 
 interface EventTickerProps {
   events: ParsedEvent[] | undefined
@@ -45,12 +46,14 @@ export function EventTicker({ events, loading }: EventTickerProps) {
   return (
     <div className="cst-panel cst-ticker">
       <div className="cst-ticker-h">
-        <b>recent events</b>
-        <span className="cst-ticker-live">live</span>
+        <b>{t('recent events')}</b>
+        <span className="cst-ticker-live">{t('live')}</span>
       </div>
       <div className="cst-ticker-feed">
         {rows.length === 0 ? (
-          <div className="cst-ticker-empty">{loading ? 'Loading events…' : 'No events yet.'}</div>
+          <div className="cst-ticker-empty">
+            {loading ? t('Loading events…') : t('No events yet.')}
+          </div>
         ) : (
           rows.map((e) => {
             const { tool, summary } = describe(e)

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { focusSiblingMatching } from '@/lib/keyboard-nav'
+import { t } from '@/lib/i18n'
 
 export function EventFilterBar() {
   const {
@@ -181,7 +182,7 @@ export function EventFilterBar() {
       {/* Row 1: Static category filters + search */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-xs text-muted-foreground">Filters:</span>
+          <span className="text-xs text-muted-foreground">{t('Filters:')}</span>
           <button
             data-filter-pill=""
             data-filter-row="0"
@@ -193,7 +194,7 @@ export function EventFilterBar() {
             )}
             onClick={clearAllFilters}
           >
-            All
+            {t('All')}
           </button>
           {primaryNames.map((category) => {
             const isActive = activePrimaryFilters.includes(category)
@@ -242,7 +243,7 @@ export function EventFilterBar() {
           />
           <Input
             data-region-target="search"
-            placeholder="Search events..."
+            placeholder={t('Search events...')}
             value={localSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
             className={cn(

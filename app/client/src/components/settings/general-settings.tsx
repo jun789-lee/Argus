@@ -3,6 +3,7 @@ import { Bell, Folder } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useTheme } from '@/components/theme-provider'
 import { Checkbox } from '@/components/ui/checkbox'
+import { LANGUAGES, useLangStore, useT } from '@/lib/i18n'
 
 export function GeneralSettings() {
   const dedupEnabled = useUIStore((s) => s.dedupEnabled)
@@ -14,6 +15,9 @@ export function GeneralSettings() {
   const activeIndicatorSeconds = useUIStore((s) => s.activeIndicatorSeconds)
   const setActiveIndicatorSeconds = useUIStore((s) => s.setActiveIndicatorSeconds)
   const { mode, setMode } = useTheme()
+  const lang = useLangStore((s) => s.lang)
+  const setLang = useLangStore((s) => s.setLang)
+  const t = useT()
 
   // Local string state so the field edits freely; committed (clamped) on blur.
   const [secondsStr, setSecondsStr] = useState(String(activeIndicatorSeconds))
@@ -31,9 +35,9 @@ export function GeneralSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium mb-3">Appearance</h3>
+        <h3 className="text-sm font-medium mb-3">{t('Appearance')}</h3>
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Theme</label>
+          <label className="text-xs text-muted-foreground">{t('Theme')}</label>
           <div className="flex gap-1">
             {(['light', 'dark', 'system'] as const).map((opt) => (
               <button
@@ -45,7 +49,25 @@ export function GeneralSettings() {
                 }`}
                 onClick={() => setMode(opt)}
               >
-                {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                {t(opt.charAt(0).toUpperCase() + opt.slice(1))}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2 mt-4">
+          <label className="text-xs text-muted-foreground">{t('Language')}</label>
+          <div className="flex gap-1">
+            {LANGUAGES.map((opt) => (
+              <button
+                key={opt.value}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer ${
+                  lang === opt.value
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                }`}
+                onClick={() => setLang(opt.value)}
+              >
+                {opt.label}
               </button>
             ))}
           </div>
@@ -53,7 +75,7 @@ export function GeneralSettings() {
       </div>
 
       <div>
-        <h3 className="text-sm font-medium mb-3">Event Stream</h3>
+        <h3 className="text-sm font-medium mb-3">{t('Event Stream')}</h3>
         {/* Rows are plain divs (not clickable labels) so only the checkbox
             toggles — clicking the description text won't flip the setting. */}
         <div className="space-y-4">
@@ -61,23 +83,24 @@ export function GeneralSettings() {
             <Checkbox
               checked={dedupEnabled}
               onCheckedChange={(v) => setDedupEnabled(v === true)}
-              aria-label="Event deduplication"
+              aria-label={t('Event deduplication')}
               className="mt-0.5 cursor-pointer"
             />
             <div>
               <div className="text-sm font-medium">
-                Event deduplication
-                <span className="mx-2 text-muted-foreground/70 font-xs">(Recommended)</span>
+                {t('Event deduplication')}
+                <span className="mx-2 text-muted-foreground/70 font-xs">{t('(Recommended)')}</span>
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Groups related hook events into single rows. Combines PreToolUse and PostToolUse
-                events into one tool row, individual events are shown in expanded row details.
+                {t(
+                  'Groups related hook events into single rows. Combines PreToolUse and PostToolUse events into one tool row, individual events are shown in expanded row details.',
+                )}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                When disabled, every hook event is shown as an individual row.
+                {t('When disabled, every hook event is shown as an individual row.')}
               </div>
               <div className="text-xs text-orange-500 dark:text-orange-400 mt-2">
-                Changing this setting reloads the page.
+                {t('Changing this setting reloads the page.')}
               </div>
             </div>
           </div>
@@ -85,24 +108,24 @@ export function GeneralSettings() {
       </div>
 
       <div>
-        <h3 className="text-sm font-medium mb-3">Sidebar</h3>
+        <h3 className="text-sm font-medium mb-3">{t('Sidebar')}</h3>
         <div className="space-y-4">
           <div className="flex items-start gap-3">
             <Checkbox
               checked={notificationsEnabled}
               onCheckedChange={(v) => setNotificationsEnabled(v === true)}
-              aria-label="Show notification alerts"
+              aria-label={t('Show notification alerts')}
               className="mt-0.5 cursor-pointer"
             />
             <div>
               <div className="text-sm font-medium flex items-center gap-1.5">
                 <Bell className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-                Show notification alerts
+                {t('Show notification alerts')}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Highlights sessions (and their parent projects) in the sidebar when an agent emits a
-                Notification event and is waiting for your input. Click the bell to dismiss it for
-                that session.
+                {t(
+                  'Highlights sessions (and their parent projects) in the sidebar when an agent emits a Notification event and is waiting for your input. Click the bell to dismiss it for that session.',
+                )}
               </div>
             </div>
           </div>
@@ -112,23 +135,24 @@ export function GeneralSettings() {
               <Checkbox
                 checked={activeIndicatorEnabled}
                 onCheckedChange={(v) => setActiveIndicatorEnabled(v === true)}
-                aria-label="Show active session indicator"
+                aria-label={t('Show active session indicator')}
                 className="mt-0.5 cursor-pointer"
               />
               <div>
                 <div className="text-sm font-medium flex items-center gap-1.5">
                   <Folder className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
-                  Show active session indicator
+                  {t('Show active session indicator')}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Pulses the session dot (and its project folder) green in the sidebar for a few
-                  seconds after an agent sends activity, then fades.
+                  {t(
+                    'Pulses the session dot (and its project folder) green in the sidebar for a few seconds after an agent sends activity, then fades.',
+                  )}
                 </div>
               </div>
             </div>
             <div className="mt-3 ml-7 flex items-center gap-2">
               <label htmlFor="active-indicator-seconds" className="text-xs text-muted-foreground">
-                Stay lit for
+                {t('Stay lit for')}
               </label>
               <input
                 id="active-indicator-seconds"
@@ -144,7 +168,7 @@ export function GeneralSettings() {
                 }}
                 className="w-16 rounded-md border border-border bg-background px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <span className="text-xs text-muted-foreground">seconds</span>
+              <span className="text-xs text-muted-foreground">{t('seconds')}</span>
             </div>
           </div>
         </div>

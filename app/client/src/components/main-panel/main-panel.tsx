@@ -11,6 +11,7 @@ import { EventStream } from '@/components/event-stream/event-stream'
 import { HomePage } from './home-page'
 import { ProjectPage } from './project-page'
 import { useRegionShortcuts } from '@/hooks/use-region-shortcuts'
+import { t } from '@/lib/i18n'
 
 export function MainPanel() {
   const { selectedProjectId, selectedProjectSlug, selectedSessionId, routeError } = useUIStore()
@@ -50,14 +51,12 @@ function RouteNotFound({ target }: { target: string }) {
   const setSelectedProject = useUIStore((s) => s.setSelectedProject)
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-      <p className="text-sm">
-        Nothing found for <span className="font-mono text-foreground">{target}</span>.
-      </p>
+      <p className="text-sm">{t('Nothing found for {target}.', { target })}</p>
       <button
         className="text-sm text-foreground underline underline-offset-4 hover:opacity-80 cursor-pointer"
         onClick={() => setSelectedProject(null)}
       >
-        Back to dashboard
+        {t('Back to dashboard')}
       </button>
     </div>
   )

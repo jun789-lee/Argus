@@ -5,6 +5,7 @@ import { useProjects } from '@/hooks/use-projects'
 import { useUIStore } from '@/stores/ui-store'
 import { SessionList } from './session-list'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t, tn } from '@/lib/i18n'
 
 export function ProjectPage() {
   const { selectedProjectId, sessionSortOrder, setSessionSortOrder } = useUIStore()
@@ -30,7 +31,7 @@ export function ProjectPage() {
         <div>
           <h1 className="text-base font-semibold">{project?.name ?? selectedProjectId}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {sessions?.length ?? 0} session{sessions?.length !== 1 ? 's' : ''}
+            {tn('{n} session', '{n} sessions', sessions?.length ?? 0)}
           </p>
         </div>
         <Tooltip>
@@ -43,26 +44,26 @@ export function ProjectPage() {
             >
               {sessionSortOrder === 'activity' ? (
                 <>
-                  <Clock className="h-3 w-3" /> Recent
+                  <Clock className="h-3 w-3" /> {t('Recent')}
                 </>
               ) : (
                 <>
-                  <CalendarDays className="h-3 w-3" /> Created
+                  <CalendarDays className="h-3 w-3" /> {t('Created')}
                 </>
               )}
             </button>
           </TooltipTrigger>
           <TooltipContent side="left" className="text-xs">
             {sessionSortOrder === 'activity'
-              ? 'Sorted by recent activity'
-              : 'Sorted by creation date'}
+              ? t('Sorted by recent activity')
+              : t('Sorted by creation date')}
           </TooltipContent>
         </Tooltip>
       </div>
       <div className="flex-1 overflow-y-auto">
         {isLoading && (
           <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
-            Loading...
+            {t('Loading...')}
           </div>
         )}
         {!isLoading && sorted.length > 0 && (

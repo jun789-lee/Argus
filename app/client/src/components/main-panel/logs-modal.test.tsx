@@ -119,7 +119,7 @@ describe('LogsModal — smoke', () => {
     renderWithProviders(<LogsModal />)
     await openModal()
     expect(screen.getByText(/raw event logs/i)).toBeInTheDocument()
-    expect(screen.getByText(/1 events/i)).toBeInTheDocument()
+    expect(screen.getByText(/^1 event$/i)).toBeInTheDocument()
   })
 })
 

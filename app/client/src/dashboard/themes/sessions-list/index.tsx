@@ -2,6 +2,7 @@ import { List } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { SessionList } from '@/components/main-panel/session-list'
 import type { DashboardTheme, DashboardThemeProps } from '../../types'
+import { t } from '@/lib/i18n'
 
 /**
  * The classic vertical list of recent sessions — the default dashboard theme.
@@ -14,7 +15,7 @@ function SessionsListView({ sessions, isLoading }: DashboardThemeProps) {
     <div className="h-full overflow-y-auto">
       {isLoading && (
         <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
-          Loading...
+          {t('Loading...')}
         </div>
       )}
       {!isLoading && sessions.length > 0 && (

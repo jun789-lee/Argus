@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { RecentSession } from '@/types'
 import { resolveDashboardTheme } from './registry'
 import { ThemeSwitcher } from './theme-switcher'
+import { t } from '@/lib/i18n'
 
 /**
  * Home-page shell. Owns session fetching, sort order, and navigation, then
@@ -45,8 +46,8 @@ export function DashboardHost() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div>
-          <h1 className="text-sm font-semibold">Recent Sessions</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Across all projects</p>
+          <h1 className="text-sm font-semibold">{t('Recent Sessions')}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('Across all projects')}</p>
         </div>
         <div className="flex items-center gap-4">
           {showSort && (
@@ -60,19 +61,19 @@ export function DashboardHost() {
                 >
                   {sessionSortOrder === 'activity' ? (
                     <>
-                      <Clock className="h-3 w-3" /> Recent
+                      <Clock className="h-3 w-3" /> {t('Recent')}
                     </>
                   ) : (
                     <>
-                      <CalendarDays className="h-3 w-3" /> Created
+                      <CalendarDays className="h-3 w-3" /> {t('Created')}
                     </>
                   )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left" className="text-xs">
                 {sessionSortOrder === 'activity'
-                  ? 'Sorted by recent activity'
-                  : 'Sorted by creation date'}
+                  ? t('Sorted by recent activity')
+                  : t('Sorted by creation date')}
               </TooltipContent>
             </Tooltip>
           )}

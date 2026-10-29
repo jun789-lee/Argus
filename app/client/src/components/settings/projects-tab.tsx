@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { ProjectModal } from './project-modal'
 import { ApiError } from '@/lib/api-client'
 import type { Project } from '@/types'
+import { t } from '@/lib/i18n'
 
 type SortBy = 'name' | 'sessions' | 'events' | 'created' | 'activity'
 type SortDir = 'asc' | 'desc'
@@ -53,7 +54,7 @@ function formatDate(ts: number | null | undefined): string {
     return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   }
   const days = Math.floor(diff / DAY_MS)
-  if (days < 7) return `${days}d ago`
+  if (days < 7) return t('{n}d ago', { n: days })
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
@@ -201,7 +202,7 @@ export function ProjectsTab() {
   }
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading projects...</div>
+    return <div className="text-sm text-muted-foreground">{t('Loading projects...')}</div>
   }
 
   return (
@@ -220,7 +221,7 @@ export function ProjectsTab() {
           }}
         >
           <Plus className="h-3.5 w-3.5" />
-          New Project
+          {t('New Project')}
         </Button>
       </div>
 
@@ -231,32 +232,32 @@ export function ProjectsTab() {
         <div className="rounded-md border">
           <div className="grid grid-cols-[1fr_85px_95px_60px_55px_72px] items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30">
             <SortHeader
-              label={`Project (${sortedRows.length})`}
+              label={t('Project ({n})', { n: sortedRows.length })}
               active={sortBy === 'name'}
               dir={sortDir}
               onClick={() => toggleSort('name')}
             />
             <SortHeader
-              label="Created"
+              label={t('Created')}
               active={sortBy === 'created'}
               dir={sortDir}
               onClick={() => toggleSort('created')}
             />
             <SortHeader
-              label="Last activity"
+              label={t('Last activity')}
               active={sortBy === 'activity'}
               dir={sortDir}
               onClick={() => toggleSort('activity')}
             />
             <SortHeader
-              label="Sessions"
+              label={t('Sessions')}
               align="right"
               active={sortBy === 'sessions'}
               dir={sortDir}
               onClick={() => toggleSort('sessions')}
             />
             <SortHeader
-              label="Events"
+              label={t('Events')}
               align="right"
               active={sortBy === 'events'}
               dir={sortDir}
@@ -277,7 +278,7 @@ export function ProjectsTab() {
           </div>
         </div>
       ) : (
-        <div className="text-sm text-muted-foreground">No projects found.</div>
+        <div className="text-sm text-muted-foreground">{t('No projects found.')}</div>
       )}
 
       {/* Nuclear delete-all — de-emphasized by default (outline only).
@@ -293,26 +294,27 @@ export function ProjectsTab() {
           onClick={() => setConfirmDeleteAll(true)}
         >
           <DatabaseZap className="h-3.5 w-3.5" />
-          Delete All Projects &amp; Logs
+          {t('Delete All Projects & Logs')}
         </Button>
         <p className="text-xs text-muted-foreground mt-1.5">
-          Permanently removes all projects, sessions, agents, and events.
+          {t('Permanently removes all projects, sessions, agents, and events.')}
         </p>
       </div>
 
       <AlertDialog open={confirmDeleteAll} onOpenChange={setConfirmDeleteAll}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all logs?</AlertDialogTitle>
+            <AlertDialogTitle>{t('Delete all logs?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all Observe logs (projects, sessions, agents, and
-              events). Your original Claude session files are not modified.
+              {t(
+                'This will permanently delete all Observe logs (projects, sessions, agents, and events). Your original Claude session files are not modified.',
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" disabled={deleting} onClick={handleDeleteAll}>
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? t('Deleting...') : t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -332,15 +334,16 @@ export function ProjectsTab() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete project &ldquo;{confirmDeleteProject?.name}&rdquo;?
+              {t('Delete project "{name}"?', { name: confirmDeleteProject?.name ?? '' })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the project and all of its sessions, agents, and events from
-              the Observe database. Your original Claude session files are not modified.
+              {t(
+                'This permanently removes the project and all of its sessions, agents, and events from the Observe database. Your original Claude session files are not modified.',
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingProject}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletingProject}>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deletingProject}
@@ -349,7 +352,7 @@ export function ProjectsTab() {
                 handleDeleteProject()
               }}
             >
-              {deletingProject ? 'Deleting...' : 'Delete'}
+              {deletingProject ? t('Deleting...') : t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -366,11 +369,11 @@ export function ProjectsTab() {
         }}
       >
         <DialogContent className="w-[420px] max-w-[90vw] p-6">
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle>{t('New Project')}</DialogTitle>
           <div className="space-y-2">
             <Input
               autoFocus
-              placeholder="Project name"
+              placeholder={t('Project name')}
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => {
@@ -382,8 +385,9 @@ export function ProjectsTab() {
             />
             {createError && <p className="text-xs text-destructive">{createError}</p>}
             <p className="text-xs text-muted-foreground">
-              Sessions get routed to a project by cwd or transcript path. You can pre-create an
-              empty project here and move existing sessions into it from the project modal.
+              {t(
+                'Sessions get routed to a project by cwd or transcript path. You can pre-create an empty project here and move existing sessions into it from the project modal.',
+              )}
             </p>
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -393,14 +397,14 @@ export function ProjectsTab() {
               disabled={creating}
               onClick={() => setNewProjectOpen(false)}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               size="sm"
               disabled={creating || !newProjectName.trim()}
               onClick={handleCreateProject}
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? t('Creating...') : t('Create')}
             </Button>
           </div>
         </DialogContent>
@@ -427,7 +431,7 @@ function ProjectRowView({
       type="button"
       onClick={onOpen}
       className="group grid w-full grid-cols-[1fr_85px_95px_60px_55px_72px] gap-x-2 gap-y-0.5 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/30 cursor-pointer text-left"
-      title={`Open ${project.name}`}
+      title={t('Open {name}', { name: project.name })}
     >
       <div className="flex items-center gap-2 min-w-0 self-center">
         <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
@@ -438,7 +442,7 @@ function ProjectRowView({
               ? 'bg-green-500'
               : 'bg-muted-foreground/60 dark:bg-muted-foreground/40')
           }
-          title={hasActiveSession ? 'Has active session' : 'No active sessions'}
+          title={hasActiveSession ? t('Has active session') : t('No active sessions')}
         />
         <span className="truncate font-medium">{project.name}</span>
       </div>
@@ -484,8 +488,8 @@ function ProjectRowView({
             }
           }}
           className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/40 hover:bg-destructive/10 hover:text-destructive transition-colors"
-          title={`Delete ${project.name}`}
-          aria-label={`Delete ${project.name}`}
+          title={t('Delete {name}', { name: project.name })}
+          aria-label={t('Delete {name}', { name: project.name })}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </span>
@@ -532,7 +536,7 @@ function SortHeader({
         (align === 'right' ? 'justify-end' : 'justify-start') +
         (active ? ' text-foreground' : '')
       }
-      title={`Sort by ${label.toLowerCase()}`}
+      title={t('Sort by {col}', { col: label.toLowerCase() })}
     >
       {active && align === 'right' && <Chevron className="h-3 w-3" />}
       <span>{label}</span>

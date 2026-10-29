@@ -12,6 +12,7 @@ import {
 } from './notification-indicator'
 import { useSessionPulseActive } from '@/hooks/use-pulse-active'
 import type { Session } from '@/types'
+import { shortTimeAgo, useT } from '@/lib/i18n'
 
 interface SessionItemProps {
   session: Session
@@ -36,15 +37,7 @@ function shortenCwd(cwd: string): string {
   return cwd.replace(/^\/(?:Users|home)\/[^/]+/, '~')
 }
 
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+const formatRelativeTime = shortTimeAgo
 
 export function SessionItem({
   session,
@@ -64,6 +57,7 @@ export function SessionItem({
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
+  const t = useT()
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -107,7 +101,7 @@ export function SessionItem({
   // also the only one persisted on the row. Reading directly avoids a
   // round-trip through a stringly-typed field.
   const isActive = !session.stoppedAt
-  const statusLabel = isActive ? 'Active' : 'Ended'
+  const statusLabel = isActive ? t('Active') : t('Ended')
   // `eventCountOverride` is supplied by the parent — live count for
   // the active session (from streaming events) or the server-provided
   // count for the rest. Undefined for sessions whose payload predates
@@ -283,7 +277,7 @@ export function SessionItem({
         {cwd && <div className="truncate">{shortenCwd(cwd)}</div>}
         {session.agentClasses.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap opacity-80">
-            <span>Agents:</span>
+            <span>{t('Agents:')}</span>
             {session.agentClasses.map((cls, i) => (
               <span key={cls} className="flex items-center gap-0.5">
                 <AgentClassIcon agentClass={cls} />
@@ -296,7 +290,7 @@ export function SessionItem({
           </div>
         )}
         <div className="opacity-80">
-          {statusLabel}: {formatRelativeTime(lastActivityTs)} - Created:{' '}
+          {statusLabel}: {formatRelativeTime(lastActivityTs)} - {t('Created:')}{' '}
           {formatRelativeTime(session.startedAt)}
         </div>
       </TooltipContent>

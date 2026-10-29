@@ -4,6 +4,7 @@ import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
 import { useEvents } from '@/hooks/use-events'
 import { CopyButton } from '@/components/shared/copy-button'
+import { t } from '@/lib/i18n'
 
 export function SessionBreadcrumb() {
   const { selectedSessionId, selectedProjectId, setSelectedSessionId, dedupEnabled, openSettings } =
@@ -29,7 +30,7 @@ export function SessionBreadcrumb() {
 
   // No project → the crumb returns to the dashboard rather than a project page.
   const hasProject = selectedProjectId != null
-  const projectName = session.projectSlug || session.projectName || 'Unassigned'
+  const projectName = session.projectSlug || session.projectName || t('Unassigned')
   const sessionName = session.slug || selectedSessionId.slice(0, 8)
   const transcriptPath = session.transcriptPath || null
 
@@ -38,7 +39,7 @@ export function SessionBreadcrumb() {
       <button
         className="hover:text-foreground transition-colors cursor-pointer truncate max-w-[150px]"
         onClick={() => setSelectedSessionId(null)}
-        title={hasProject ? `Back to ${projectName}` : 'Back to dashboard'}
+        title={hasProject ? t('Back to {name}', { name: projectName }) : t('Back to dashboard')}
       >
         {projectName}
       </button>
@@ -47,7 +48,7 @@ export function SessionBreadcrumb() {
         <CopyButton
           text={transcriptPath}
           label={sessionName}
-          title={`Click to copy: ${transcriptPath}`}
+          title={t('Click to copy: {text}', { text: transcriptPath })}
           className="max-w-[200px] text-foreground"
         />
       ) : (
@@ -62,7 +63,7 @@ export function SessionBreadcrumb() {
             text={cwd}
             label={cwd.split('/').slice(-2).join('/')}
             icon={<Folder className="h-3 w-3 shrink-0" />}
-            title={`Click to copy: ${cwd}`}
+            title={t('Click to copy: {text}', { text: cwd })}
           />
         </>
       )}
@@ -73,9 +74,9 @@ export function SessionBreadcrumb() {
             : 'border-orange-500/50 text-orange-500 hover:border-orange-500 hover:text-orange-600'
         }`}
         onClick={() => openSettings('settings')}
-        title={dedupEnabled ? 'Event dedup is on' : 'Event dedup is off — showing raw events'}
+        title={dedupEnabled ? t('Event dedup is on') : t('Event dedup is off — showing raw events')}
       >
-        {dedupEnabled ? 'Dedup Events' : 'Raw Events'}
+        {dedupEnabled ? t('Dedup Events') : t('Raw Events')}
       </button>
     </div>
   )

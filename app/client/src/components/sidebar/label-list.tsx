@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { SessionItem } from './session-item'
 import type { Label, RecentSession } from '@/types'
+import { localizeDateGroup, shortTimeAgo, useT } from '@/lib/i18n'
 
 // Same recent-sessions fetch limit used by the Sessions and Labels tabs
 // in the Settings modal — all three share the react-query cache so this
@@ -16,15 +17,7 @@ interface LabelListProps {
   collapsed: boolean
 }
 
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+const formatRelativeTime = shortTimeAgo
 
 function getDateGroupLabel(ts: number): string {
   const now = new Date()
@@ -99,6 +92,7 @@ export function LabelList({ collapsed }: LabelListProps) {
   const labels = useUIStore((s) => s.labels)
   const labelMemberships = useUIStore((s) => s.labelMemberships)
   const openLabelsModal = useUIStore((s) => s.openLabelsModal)
+  const t = useT()
   const { data: sessions } = useRecentSessions(SESSION_FETCH_LIMIT)
   const [expandedLabelId, setExpandedLabelId] = useState<string | null>(null)
 
@@ -134,12 +128,12 @@ export function LabelList({ collapsed }: LabelListProps) {
               <button
                 className="flex h-8 w-8 mx-auto items-center justify-center rounded-md text-muted-foreground hover:bg-accent cursor-pointer"
                 onClick={() => openLabelsModal()}
-                aria-label="Add label"
+                aria-label={t('Add label')}
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Add label</TooltipContent>
+            <TooltipContent side="right">{t('Add label')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       )
@@ -148,14 +142,14 @@ export function LabelList({ collapsed }: LabelListProps) {
       <TooltipProvider>
         <div className="p-2 space-y-2">
           <div className="text-xs text-muted-foreground">
-            No labels yet. Create one in Settings.
+            {t('No labels yet. Create one in Settings.')}
           </div>
           <button
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
             onClick={() => openLabelsModal()}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add label
+            {t('Add label')}
           </button>
         </div>
       </TooltipProvider>
@@ -228,7 +222,7 @@ export function LabelList({ collapsed }: LabelListProps) {
                   }}
                 >
                   <Pencil className="h-2.5 w-2.5" />
-                  Edit
+                  {t('Edit')}
                 </span>
               </div>
               {isExpanded && <LabelSessionList label={label} sessions={labelSessions} />}
@@ -251,6 +245,7 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
     setEditingSessionId,
     setSelectedProject,
   } = useUIStore()
+  const t = useT()
 
   const groups = useMemo(() => {
     if (!sessions.length) return []
@@ -273,7 +268,7 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
   if (!sessions.length) {
     return (
       <div className="ml-3.5 mt-1 pb-2 pl-2 text-xs text-muted-foreground border-l border-border">
-        No sessions in this label yet.
+        {t('No sessions in this label yet.')}
       </div>
     )
   }
@@ -292,7 +287,7 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
           <div key={group.label} className={groupIndex > 0 ? 'mt-3' : ''}>
             <div className="flex items-center px-2 pt-0 pb-0.5 select-none">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/50 dark:text-muted-foreground/30">
-                {group.label}
+                {localizeDateGroup(group.label)}
               </span>
               {groupIndex === 0 && (
                 <Tooltip>
@@ -307,19 +302,19 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
                     >
                       {sessionSortOrder === 'activity' ? (
                         <>
-                          <Clock className="h-3 w-3" /> Recent
+                          <Clock className="h-3 w-3" /> {t('Recent')}
                         </>
                       ) : (
                         <>
-                          <CalendarDays className="h-3 w-3" /> Created
+                          <CalendarDays className="h-3 w-3" /> {t('Created')}
                         </>
                       )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-xs">
                     {sessionSortOrder === 'activity'
-                      ? 'Sorted by recent activity'
-                      : 'Sorted by creation date'}
+                      ? t('Sorted by recent activity')
+                      : t('Sorted by creation date')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -361,7 +356,7 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
                 className="w-full text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer"
                 onClick={() => toggleGroup(group.label)}
               >
-                Show {hiddenCount} more...
+                {t('Show {n} more...', { n: hiddenCount })}
               </button>
             )}
             {shouldCollapse &&
@@ -371,7 +366,7 @@ function LabelSessionList({ label, sessions }: { label: Label; sessions: RecentS
                   className="w-full text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer"
                   onClick={() => toggleGroup(group.label)}
                 >
-                  Show less
+                  {t('Show less')}
                 </button>
               )}
           </div>

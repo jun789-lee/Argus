@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { t } from '@/lib/i18n'
 
 interface IconPickerProps {
   currentIconName: string
@@ -58,7 +59,7 @@ export function IconPicker({
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon-sm" className="shrink-0" aria-label="Change icon">
+        <Button variant="outline" size="icon-sm" className="shrink-0" aria-label={t('Change icon')}>
           <DynamicIcon
             name={currentKebab}
             className={cn('h-4 w-4', iconColorClass)}
@@ -74,7 +75,7 @@ export function IconPicker({
       >
         <div className="p-2 border-b border-border">
           <Input
-            placeholder="Search icons..."
+            placeholder={t('Search icons...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8 text-sm"
@@ -109,11 +110,14 @@ export function IconPicker({
           </div>
           {filtered.length > MAX_VISIBLE && (
             <p className="py-2 text-center text-[10px] text-muted-foreground">
-              Showing {MAX_VISIBLE} of {filtered.length} — refine your search
+              {t('Showing {shown} of {total} — refine your search', {
+                shown: MAX_VISIBLE,
+                total: filtered.length,
+              })}
             </p>
           )}
           {filtered.length === 0 && (
-            <p className="py-6 text-center text-sm text-muted-foreground">No icons found.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t('No icons found.')}</p>
           )}
         </div>
       </PopoverContent>

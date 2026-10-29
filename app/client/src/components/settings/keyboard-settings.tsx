@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { t } from '@/lib/i18n'
 
 function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -45,26 +46,26 @@ export function KeyboardSettings() {
   return (
     <div className="space-y-6">
       <Section
-        title="Region jumps"
+        title={t('Region jumps')}
         hint="Press a single key to focus a region. Suppressed when typing in an input or when a modifier key (⌘/Ctrl/Alt) is held."
       >
         <Row
           keys={
             <>
               <Kbd>/</Kbd>
-              <span className="text-[10px] text-muted-foreground/60">or</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('or')}</span>
               <Kbd>s</Kbd>
             </>
           }
-          label="Focus search"
+          label={t('Focus search')}
         />
-        <Row keys={<Kbd>a</Kbd>} label="Open agents combobox" />
-        <Row keys={<Kbd>f</Kbd>} label="Focus first filter pill" />
-        <Row keys={<Kbd>b</Kbd>} label="Focus sidebar (selected session, or first item)" />
-        <Row keys={<Kbd>e</Kbd>} label="Focus event stream" />
+        <Row keys={<Kbd>a</Kbd>} label={t('Open agents combobox')} />
+        <Row keys={<Kbd>f</Kbd>} label={t('Focus first filter pill')} />
+        <Row keys={<Kbd>b</Kbd>} label={t('Focus sidebar (selected session, or first item)')} />
+        <Row keys={<Kbd>e</Kbd>} label={t('Focus event stream')} />
       </Section>
 
-      <Section title="Sidebar (when focused)">
+      <Section title={t('Sidebar (when focused)')}>
         <Row
           keys={
             <>
@@ -72,21 +73,21 @@ export function KeyboardSettings() {
               <Kbd>↓</Kbd>
             </>
           }
-          label="Move between visible items (pinned, projects, sessions)"
+          label={t('Move between visible items (pinned, projects, sessions)')}
         />
         <Row
           keys={
             <>
               <Kbd>Enter</Kbd>
-              <span className="text-[10px] text-muted-foreground/60">or</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('or')}</span>
               <Kbd>Space</Kbd>
             </>
           }
-          label="Open the focused session / toggle a project row"
+          label={t('Open the focused session / toggle a project row')}
         />
       </Section>
 
-      <Section title="Filters (when a pill is focused)">
+      <Section title={t('Filters (when a pill is focused)')}>
         <Row
           keys={
             <>
@@ -94,7 +95,7 @@ export function KeyboardSettings() {
               <Kbd>→</Kbd>
             </>
           }
-          label="Move between filter pills (left/right within and across rows)"
+          label={t('Move between filter pills (left/right within and across rows)')}
         />
         <Row
           keys={
@@ -103,22 +104,22 @@ export function KeyboardSettings() {
               <Kbd>↓</Kbd>
             </>
           }
-          label="Jump between the static row and the dynamic tools row"
+          label={t('Jump between the static row and the dynamic tools row')}
         />
         <Row
           keys={
             <>
               <Kbd>Enter</Kbd>
-              <span className="text-[10px] text-muted-foreground/60">or</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('or')}</span>
               <Kbd>Space</Kbd>
             </>
           }
-          label="Toggle the focused filter"
+          label={t('Toggle the focused filter')}
         />
       </Section>
 
       <Section
-        title="Event stream scrolling"
+        title={t('Event stream scrolling')}
         hint="Active anywhere on the page (except inside text inputs and dialogs)."
       >
         <Row
@@ -126,25 +127,25 @@ export function KeyboardSettings() {
             <>
               <Kbd>⌘</Kbd>
               <Kbd>↑</Kbd>
-              <span className="text-[10px] text-muted-foreground/60">or</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('or')}</span>
               <Kbd>Home</Kbd>
             </>
           }
-          label="Scroll to top"
+          label={t('Scroll to top')}
         />
         <Row
           keys={
             <>
               <Kbd>⌘</Kbd>
               <Kbd>↓</Kbd>
-              <span className="text-[10px] text-muted-foreground/60">or</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('or')}</span>
               <Kbd>End</Kbd>
             </>
           }
-          label="Scroll to bottom"
+          label={t('Scroll to bottom')}
         />
-        <Row keys={<Kbd>PageUp</Kbd>} label="Scroll up one page" />
-        <Row keys={<Kbd>PageDown</Kbd>} label="Scroll down one page" />
+        <Row keys={<Kbd>PageUp</Kbd>} label={t('Scroll up one page')} />
+        <Row keys={<Kbd>PageDown</Kbd>} label={t('Scroll down one page')} />
       </Section>
     </div>
   )

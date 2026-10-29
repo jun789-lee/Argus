@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Check, Pipette } from 'lucide-react'
+import { t } from '@/lib/i18n'
 
 interface ColorPickerProps {
   currentColor: string | undefined // color preset key or "custom"
@@ -34,7 +35,12 @@ export function ColorPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon-sm" className="shrink-0" aria-label="Change color">
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="shrink-0"
+          aria-label={t('Change color')}
+        >
           <div
             className="h-3.5 w-3.5 rounded-full border border-border"
             style={{ backgroundColor: activeSwatch }}
@@ -75,7 +81,7 @@ export function ColorPicker({
                 : 'border-border hover:border-foreground/50',
             )}
             style={{ backgroundColor: customHex || '#6b7280' }}
-            title="Custom color"
+            title={t('Custom color')}
             onClick={() => colorInputRef.current?.click()}
           >
             <Pipette className="h-3.5 w-3.5 text-white drop-shadow-sm" />
@@ -89,7 +95,7 @@ export function ColorPicker({
               onSelect('custom', e.target.value)
             }}
           />
-          <span className="text-xs text-muted-foreground">Custom</span>
+          <span className="text-xs text-muted-foreground">{t('Custom')}</span>
           {currentColor === 'custom' && customHex && (
             <span className="text-xs font-mono text-muted-foreground ml-auto">{customHex}</span>
           )}

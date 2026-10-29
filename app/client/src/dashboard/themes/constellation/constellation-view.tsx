@@ -27,6 +27,7 @@ import {
 } from './scale'
 import { Settings } from 'lucide-react'
 import './constellation.css'
+import { t as tr } from '@/lib/i18n'
 
 const PALETTE_STORAGE_KEY = 'agents-observe-constellation-palette'
 const WINDOW_STORAGE_KEY = 'agents-observe-constellation-window'
@@ -540,7 +541,7 @@ export function ConstellationView({ onOpenSession }: DashboardThemeProps) {
     return (
       <div className="constellation flex items-center justify-center" data-palette={paletteId}>
         <div className="text-sm" style={{ color: 'var(--c-muted)' }}>
-          No sessions active in the last 24 hours.
+          {tr('No sessions active in the last 24 hours.')}
         </div>
       </div>
     )
@@ -738,14 +739,14 @@ function ConstellationControls({
       <button
         className="cst-gear"
         onClick={onToggleCollapsed}
-        aria-label={collapsed ? 'Show controls' : 'Hide controls'}
-        title={collapsed ? 'Show controls' : 'Hide controls'}
+        aria-label={collapsed ? tr('Show controls') : tr('Hide controls')}
+        title={collapsed ? tr('Show controls') : tr('Hide controls')}
       >
         <Settings className="h-4 w-4" />
       </button>
       {!collapsed && (
         <div className="cst-controls-body">
-          <div className="cst-panel-h">Palette</div>
+          <div className="cst-panel-h">{tr('Palette')}</div>
           <div className="cst-row">
             {PALETTES.map((p) => (
               <button
@@ -758,7 +759,7 @@ function ConstellationControls({
             ))}
           </div>
           <div className="cst-slider">
-            <label htmlFor="cst-window">window</label>
+            <label htmlFor="cst-window">{tr('window')}</label>
             <input
               id="cst-window"
               type="range"
@@ -771,7 +772,7 @@ function ConstellationControls({
             <span>{fmtDuration(windowMs)}</span>
           </div>
           <div className="cst-slider">
-            <label htmlFor="cst-zoom">zoom</label>
+            <label htmlFor="cst-zoom">{tr('zoom')}</label>
             <input
               id="cst-zoom"
               type="range"
@@ -784,7 +785,7 @@ function ConstellationControls({
             <span>{zoomPercent(viewH)}%</span>
           </div>
           <div className="cst-slider">
-            <label htmlFor="cst-tau">decay τ</label>
+            <label htmlFor="cst-tau">{tr('decay τ')}</label>
             <input
               id="cst-tau"
               type="range"
@@ -800,13 +801,13 @@ function ConstellationControls({
               className={'cst-btn' + (reduced ? ' cst-btn--on' : '')}
               onClick={() => onReduced(!reduced)}
             >
-              Reduce motion
+              {tr('Reduce motion')}
             </button>
             <button className="cst-btn" onClick={onRecenter}>
-              Recenter
+              {tr('Recenter')}
             </button>
           </div>
-          <div className="cst-meta">drag to pan · double-click to recenter</div>
+          <div className="cst-meta">{tr('drag to pan · double-click to recenter')}</div>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 // Claude Code agent class — timeline dot tooltip.
 
-import { format } from 'timeago.js'
+import { timeAgo as format } from '@/lib/i18n'
 import type { EnrichedEvent } from '../types'
 
 function formatTimeOfDay(ts: number): string {

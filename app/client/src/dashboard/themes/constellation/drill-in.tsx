@@ -6,6 +6,7 @@ import { useAgents } from '@/hooks/use-agents'
 import { useUIStore } from '@/stores/ui-store'
 import { buildAgentTree, layoutTree } from './agent-tree'
 import { EventTicker } from './event-ticker'
+import { t } from '@/lib/i18n'
 
 interface DrillInProps {
   sessionId: string
@@ -70,7 +71,7 @@ export function DrillIn({
             className={n.isRoot ? 'cst-tree-root' : undefined}
             onClick={n.isRoot ? onOpen : undefined}
           >
-            {n.isRoot && <title>Open session</title>}
+            {n.isRoot && <title>{t('Open session')}</title>}
             <circle
               className="cst-tree-node"
               cx={n.x}
@@ -98,10 +99,10 @@ export function DrillIn({
       {portalTarget && createPortal(treeSvg, portalTarget)}
       <div className="cst-drill-actions">
         <button className="cst-btn" onClick={onClose}>
-          ← Back
+          {t('← Back')}
         </button>
         <button className="cst-btn cst-btn--on" onClick={onOpen}>
-          Open session →
+          {t('Open session →')}
         </button>
       </div>
       <EventTicker events={events} loading={isLoading} />

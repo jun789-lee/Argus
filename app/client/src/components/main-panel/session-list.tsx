@@ -7,17 +7,18 @@ import {
   useSessionHasNotification,
 } from '@/components/sidebar/notification-indicator'
 import type { Session, RecentSession } from '@/types'
+import { t } from '@/lib/i18n'
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return t('just now')
+  if (mins < 60) return t('{n}m ago', { n: mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return t('{n}h ago', { n: hours })
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return `${Math.floor(days / 30)}mo ago`
+  if (days < 30) return t('{n}d ago', { n: days })
+  return t('{n}mo ago', { n: Math.floor(days / 30) })
 }
 
 function shortenCwd(cwd: string): string {
@@ -47,8 +48,8 @@ export function SessionList({
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2">
         <Activity className="h-8 w-8 opacity-30" />
-        <span className="text-sm">No sessions yet</span>
-        <span className="text-xs">Sessions will appear here as agents connect</span>
+        <span className="text-sm">{t('No sessions yet')}</span>
+        <span className="text-xs">{t('Sessions will appear here as agents connect')}</span>
       </div>
     )
   }

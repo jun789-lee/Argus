@@ -10,10 +10,10 @@ import { api } from '@/lib/api-client'
 import { useUIStore } from '@/stores/ui-store'
 import { EventRow } from './event-row'
 import { TimestampTooltipProvider } from './timestamp-tooltip'
-import { format } from 'timeago.js'
 import { buildAgentColorMap } from '@/lib/agent-utils'
 import { QueryBoundary } from '@/components/shared/query-boundary'
 import { EmptyState, Spinner } from '@/components/shared/loading-states'
+import { t, timeAgo as format } from '@/lib/i18n'
 
 export function EventStream() {
   const {
@@ -399,7 +399,7 @@ export function EventStream() {
   if (!selectedSessionId) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-        Select a project to view events
+        {t('Select a project to view events')}
       </div>
     )
   }
@@ -415,7 +415,7 @@ export function EventStream() {
         query={displayQuery}
         loading={
           <div className="flex-1 flex items-center justify-center">
-            <Spinner label="Loading events..." />
+            <Spinner label={t('Loading events...')} />
           </div>
         }
         empty={
@@ -429,11 +429,11 @@ export function EventStream() {
           <>
             <div className="flex items-center gap-2 px-3 py-1 border-b border-border/50 shrink-0">
               <span className="text-xs text-muted-foreground">
-                Events: <span className="text-foreground">{filteredEvents.length}</span>
+                {t('Events:')} <span className="text-foreground">{filteredEvents.length}</span>
                 {showRawCount && (
                   <span className="text-muted-foreground/70 dark:text-muted-foreground/50">
                     {' '}
-                    / {rawCount} raw
+                    / {t('{n} raw', { n: rawCount })}
                   </span>
                 )}
               </span>

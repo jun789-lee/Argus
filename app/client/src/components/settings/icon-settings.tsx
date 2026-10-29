@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { t } from '@/lib/i18n'
 
 /** Map a Tailwind iconColor class back to the COLOR_PRESETS preset key,
  *  if any. Used to render the default-color swatch in the picker. */
@@ -90,7 +91,7 @@ export function IconSettings() {
     <div className="flex flex-col gap-3 h-full max-h-full">
       <div className="flex items-center gap-2">
         <Input
-          placeholder="Filter event types..."
+          placeholder={t('Filter event types...')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="h-8 text-sm"
@@ -101,10 +102,10 @@ export function IconSettings() {
             size="xs"
             onClick={resetAll}
             className="shrink-0 text-muted-foreground"
-            title="Reset all customizations"
+            title={t('Reset all customizations')}
           >
             <RotateCcw className="h-3 w-3" />
-            Reset all
+            {t('Reset all')}
           </Button>
         )}
       </div>
@@ -134,7 +135,7 @@ export function IconSettings() {
           ))}
           {filteredEntries.length === 0 && (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              No event types match your filter.
+              {t('No event types match your filter.')}
             </p>
           )}
         </div>
@@ -208,7 +209,7 @@ function EventRow({ entry, customization, onChangeIcon, onChangeColor, onReset }
           size="icon-xs"
           onClick={onReset}
           className="h-5 w-5 shrink-0 text-muted-foreground"
-          title="Reset to default"
+          title={t('Reset to default')}
         >
           <RotateCcw className="h-3 w-3" />
         </Button>

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { LogsModal } from './logs-modal'
 import { AgentCombobox } from './agent-combobox'
 import { ArrowDownToLine, SquarePen, BarChart3, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { t } from '@/lib/i18n'
 
 export function ScopeBar() {
   const {
@@ -32,7 +33,7 @@ export function ScopeBar() {
           size="icon"
           className="h-7 w-7"
           onClick={() => setAutoFollow(!autoFollow)}
-          title={autoFollow ? 'Auto-follow enabled' : 'Auto-follow disabled'}
+          title={autoFollow ? t('Auto-follow enabled') : t('Auto-follow disabled')}
         >
           <ArrowDownToLine className="h-3.5 w-3.5" />
         </Button>
@@ -48,7 +49,7 @@ export function ScopeBar() {
               requestExpandAll()
             }
           }}
-          title={expandedEventIds.size > 0 ? 'Collapse all' : 'Expand all'}
+          title={expandedEventIds.size > 0 ? t('Collapse all') : t('Expand all')}
         >
           {expandedEventIds.size > 0 ? (
             <ChevronsDownUp className="h-3.5 w-3.5" />
@@ -64,7 +65,7 @@ export function ScopeBar() {
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={() => setEditingSessionId(selectedSessionId, 'stats')}
-          title="Session stats"
+          title={t('Session stats')}
         >
           <BarChart3 className="h-3.5 w-3.5" />
         </Button>
@@ -74,7 +75,7 @@ export function ScopeBar() {
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={() => setEditingSessionId(selectedSessionId)}
-          title="Edit session"
+          title={t('Edit session')}
         >
           <SquarePen className="h-3.5 w-3.5" />
         </Button>

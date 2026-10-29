@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ParsedEvent } from '@/types'
+import { t, tn } from '@/lib/i18n'
 
 type Match = { eventId: number; range: Range }
 
@@ -169,8 +170,8 @@ const LogsRow = memo(function LogsRow({
         <button
           className="text-muted-foreground/70 dark:text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
           onClick={() => onJump(event.id)}
-          title="Jump to this event in the stream"
-          aria-label="Jump to this event in the stream"
+          title={t('Jump to this event in the stream')}
+          aria-label={t('Jump to this event in the stream')}
         >
           <ExternalLink className="h-3 w-3" />
         </button>
@@ -183,7 +184,7 @@ const LogsRow = memo(function LogsRow({
         <button
           className="text-muted-foreground/70 dark:text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
           onClick={() => onCopy(event.id, event.payload as Record<string, unknown>)}
-          title="Copy payload"
+          title={t('Copy payload')}
         >
           {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
         </button>
@@ -453,7 +454,7 @@ export function LogsModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7" title="View raw event logs">
+        <Button variant="ghost" size="icon" className="h-7 w-7" title={t('View raw event logs')}>
           <ScrollText className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
@@ -471,8 +472,10 @@ export function LogsModal() {
         className="w-[90vw] max-w-5xl h-[85vh] flex flex-col p-0"
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-          <DialogTitle>Raw Event Logs</DialogTitle>
-          <span className="text-xs text-muted-foreground">{events?.length ?? 0} events</span>
+          <DialogTitle>{t('Raw Event Logs')}</DialogTitle>
+          <span className="text-xs text-muted-foreground">
+            {tn('{n} event', '{n} events', events?.length ?? 0)}
+          </span>
           <div className="flex items-center gap-1 ml-auto">
             {/* Search input — first child of the action group. */}
             <div className="relative w-56 mr-1">
@@ -483,7 +486,7 @@ export function LogsModal() {
                 )}
               />
               <Input
-                placeholder="Search payloads..."
+                placeholder={t('Search payloads...')}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)
@@ -525,7 +528,7 @@ export function LogsModal() {
             {committedQuery !== '' && (
               <div className="flex items-center gap-0.5 mr-1 text-xs">
                 {matchCount === 0 ? (
-                  <span className="text-destructive mr-1">0 matches</span>
+                  <span className="text-destructive mr-1">{t('0 matches')}</span>
                 ) : (
                   <span className="text-muted-foreground mr-1 tabular-nums">
                     {currentMatchIndex + 1}/{matchCount}
@@ -538,7 +541,7 @@ export function LogsModal() {
                   className="h-6 w-6"
                   onClick={prev}
                   disabled={matchCount === 0}
-                  title="Previous match"
+                  title={t('Previous match')}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
                 </Button>
@@ -548,7 +551,7 @@ export function LogsModal() {
                   className="h-6 w-6"
                   onClick={next}
                   disabled={matchCount === 0}
-                  title="Next match"
+                  title={t('Next match')}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
@@ -561,7 +564,7 @@ export function LogsModal() {
                     setCommittedQuery('')
                     clearTimeout(debounceRef.current)
                   }}
-                  title="Clear search"
+                  title={t('Clear search')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -574,7 +577,7 @@ export function LogsModal() {
               size="sm"
               className="h-7 gap-1.5 text-xs"
               onClick={handleCopyAll}
-              title="Copy all logs"
+              title={t('Copy all logs')}
               disabled={loading}
             >
               {copiedAll ? (
@@ -582,7 +585,7 @@ export function LogsModal() {
               ) : (
                 <ClipboardCopy className="h-3 w-3" />
               )}
-              {copiedAll ? 'Copied' : 'Copy all'}
+              {copiedAll ? t('Copied') : t('Copy all')}
             </Button>
             <Button
               variant="ghost"
@@ -599,7 +602,7 @@ export function LogsModal() {
                 a.click()
                 URL.revokeObjectURL(url)
               }}
-              title="Download logs as JSON"
+              title={t('Download logs as JSON')}
               disabled={loading || !events}
             >
               <CloudDownload className="h-3.5 w-3.5" />
@@ -609,13 +612,13 @@ export function LogsModal() {
               size="icon"
               className="h-7 w-7"
               onClick={scrollToBottom}
-              title="Jump to bottom"
+              title={t('Jump to bottom')}
               disabled={loading}
             >
               <ArrowDownToLine className="h-3.5 w-3.5" />
             </Button>
             <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Close">
+              <Button variant="ghost" size="icon" className="h-7 w-7" title={t('Close')}>
                 <X className="h-4 w-4" />
               </Button>
             </DialogClose>
@@ -625,7 +628,7 @@ export function LogsModal() {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
               <LoaderCircle className="h-6 w-6 animate-spin" />
-              <span className="text-sm">Loading events...</span>
+              <span className="text-sm">{t('Loading events...')}</span>
             </div>
           ) : readyEvents && readyEvents.length > 0 ? (
             <div className="divide-y divide-border/30">
@@ -643,7 +646,7 @@ export function LogsModal() {
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              No events
+              {t('No events')}
             </div>
           )}
         </div>

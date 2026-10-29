@@ -26,6 +26,7 @@ import { getServerHealth } from '@/lib/server-health'
 import { useDbStats } from '@/hooks/use-db-stats'
 import { formatBytes } from '@/lib/format-bytes'
 import { Database, Container, Monitor, X } from 'lucide-react'
+import { useT } from '@/lib/i18n'
 
 interface ServerInfo {
   dbPath: string
@@ -42,6 +43,7 @@ export function SettingsModal() {
   const closeSettings = useUIStore((s) => s.closeSettings)
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
   const dbStats = useDbStats(open)
+  const t = useT()
 
   const draftCount = useFilterDraftStore((s) => s.drafts.size)
   const clearAllDrafts = useFilterDraftStore((s) => s.clearAll)
@@ -93,10 +95,10 @@ export function SettingsModal() {
         }
       >
         <div className="flex items-center px-6 pt-6 pb-0">
-          <DialogTitle>Settings</DialogTitle>
+          <DialogTitle>{t('Settings')}</DialogTitle>
           <div className="ml-auto">
             <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Close">
+              <Button variant="ghost" size="icon" className="h-7 w-7" title={t('Close')}>
                 <X className="h-4 w-4" />
               </Button>
             </DialogClose>
@@ -109,13 +111,13 @@ export function SettingsModal() {
         >
           <div className="px-6 pt-2">
             <TabsList>
-              <TabsTrigger value="settings">Display</TabsTrigger>
-              <TabsTrigger value="icons">Icons</TabsTrigger>
-              <TabsTrigger value="filters">Filters</TabsTrigger>
-              <TabsTrigger value="projects">Projects</TabsTrigger>
-              <TabsTrigger value="labels">Labels</TabsTrigger>
-              <TabsTrigger value="sessions">Sessions</TabsTrigger>
-              <TabsTrigger value="keyboard">Keyboard</TabsTrigger>
+              <TabsTrigger value="settings">{t('Display')}</TabsTrigger>
+              <TabsTrigger value="icons">{t('Icons')}</TabsTrigger>
+              <TabsTrigger value="filters">{t('Filters')}</TabsTrigger>
+              <TabsTrigger value="projects">{t('Projects')}</TabsTrigger>
+              <TabsTrigger value="labels">{t('Labels')}</TabsTrigger>
+              <TabsTrigger value="sessions">{t('Sessions')}</TabsTrigger>
+              <TabsTrigger value="keyboard">{t('Keyboard')}</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="settings" className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-4">
@@ -155,7 +157,9 @@ export function SettingsModal() {
             ) : (
               <Monitor className="h-3 w-3 shrink-0" />
             )}
-            <span className="shrink-0">{serverInfo.runtime === 'docker' ? 'Docker' : 'Local'}</span>
+            <span className="shrink-0">
+              {serverInfo.runtime === 'docker' ? 'Docker' : t('Local')}
+            </span>
             <span className="text-muted-foreground/30">|</span>
             <Database className="h-3 w-3 shrink-0" />
             <span className="truncate">{serverInfo.dbPath}</span>
@@ -173,16 +177,18 @@ export function SettingsModal() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Discard unsaved changes to {draftCount} filter
-              {draftCount === 1 ? '' : 's'}?
+              {draftCount === 1
+                ? t('Discard unsaved changes to {n} filter?', { n: draftCount })
+                : t('Discard unsaved changes to {n} filters?', { n: draftCount })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You have in-progress edits that haven&apos;t been saved. Closing the modal will
-              discard them. To keep the edits, click Cancel, then Save on each filter.
+              {t(
+                "You have in-progress edits that haven't been saved. Closing the modal will discard them. To keep the edits, click Cancel, then Save on each filter.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={(e) => {
@@ -196,7 +202,7 @@ export function SettingsModal() {
                 }
               }}
             >
-              Discard &amp; close
+              {t('Discard & close')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -205,11 +211,11 @@ export function SettingsModal() {
       <AlertDialog open={confirmRefreshOpen} onOpenChange={setConfirmRefreshOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Refresh page to apply filter changes?</AlertDialogTitle>
+            <AlertDialogTitle>{t('Refresh page to apply filter changes?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Filter changes have been saved but won&apos;t affect the events shown in this session
-              until the page is refreshed. Created filters won&apos;t show pills yet, and
-              enable/disable toggles won&apos;t take effect.
+              {t(
+                "Filter changes have been saved but won't affect the events shown in this session until the page is refreshed. Created filters won't show pills yet, and enable/disable toggles won't take effect.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -221,7 +227,7 @@ export function SettingsModal() {
                 closeSettings()
               }}
             >
-              Close anyway
+              {t('Close anyway')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -229,7 +235,7 @@ export function SettingsModal() {
                 window.location.reload()
               }}
             >
-              Refresh now
+              {t('Refresh now')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
