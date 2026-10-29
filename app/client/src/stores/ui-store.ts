@@ -357,8 +357,8 @@ interface UIState {
   setSelectedTurn: (turn: { sessionId: string; id: string } | null) => void
 
   // Activity area: prompt/subagent waterfall or the per-agent dot lanes.
-  timelineView: 'waterfall' | 'lanes'
-  setTimelineView: (view: 'waterfall' | 'lanes') => void
+  timelineView: 'team' | 'waterfall' | 'lanes'
+  setTimelineView: (view: 'team' | 'waterfall' | 'lanes') => void
 
   // Settings modal
   settingsOpen: boolean
@@ -848,8 +848,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   selectedTurn: null,
   setSelectedTurn: (turn) => set({ selectedTurn: turn }),
 
-  timelineView:
-    localStorage.getItem('agents-observe-timeline-view') === 'lanes' ? 'lanes' : 'waterfall',
+  timelineView: (() => {
+    const v = localStorage.getItem('agents-observe-timeline-view')
+    return v === 'lanes' || v === 'waterfall' ? v : 'team'
+  })(),
   setTimelineView: (view) => {
     localStorage.setItem('agents-observe-timeline-view', view)
     set({ timelineView: view })

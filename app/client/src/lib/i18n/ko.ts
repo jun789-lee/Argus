@@ -431,6 +431,28 @@ export const ko: Record<string, string> = {
     '계획이 아직 다 끝나지 않았어요. 남은 단계는 아직 시작되지 않았어요.',
   'Open the prompt that planned this step': '이 단계를 계획한 프롬프트 열기',
   'original plan': '원래 계획',
+
+  // ── Team board ──────────────────────────────────────────
+  Team: '팀',
+  'The manager, its team, their reports and decisions': '팀장과 팀원, 보고와 판단을 한눈에',
+  'No missions yet': '아직 미션이 없어요',
+  'Continues an earlier mission': '이전 미션을 이어서 진행',
+  Manager: '팀장',
+  'Team (delegated)': '팀원 (위임)',
+  Decisions: '판단',
+  Deliverable: '결과물',
+  'The manager is working alone on this mission.': '이 미션은 팀장이 혼자 처리하고 있어요.',
+  'Waiting for the team to report.': '팀원들의 보고를 기다리는 중이에요.',
+  'No decisions recorded yet.': '아직 기록된 판단이 없어요.',
+  'In progress…': '진행 중…',
+  'No final answer recorded.': '기록된 최종 답변이 없어요.',
+  Researcher: '조사원',
+  Planner: '설계자',
+  Generalist: '범용 담당',
+  'Web reader': '웹 리더',
+  Guide: '안내원',
+  Setup: '설정 담당',
+  Assistant: '보조',
   "Claude's to-do list tools are off in this session":
     '이 세션에서는 Claude의 할 일 목록 도구가 꺼져 있어요',
   'Newer models no longer get TaskCreate / TodoWrite by default, so plans are not recorded and steps fall back to replies.':

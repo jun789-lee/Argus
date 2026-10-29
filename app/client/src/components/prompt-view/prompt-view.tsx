@@ -14,7 +14,7 @@ import { SessionPlanCtx } from './session-plan-context'
 import { buildSessionPlanContext } from '@/lib/plan'
 
 /** The turn's final reply, as reported by its Stop / SubagentStop hook. */
-function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
+export function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
   const pick = (e: TreeEvent | undefined) =>
     typeof e?.payload?.last_assistant_message === 'string'
       ? (e.payload.last_assistant_message as string)

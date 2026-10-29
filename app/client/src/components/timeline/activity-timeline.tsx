@@ -49,6 +49,7 @@ import { Rewind, Play } from 'lucide-react'
 import type { EnrichedEvent } from '@/agents/types'
 import { t as tr } from '@/lib/i18n'
 import { WaterfallView } from './waterfall-view'
+import { TeamBoard } from '@/components/team-board/team-board'
 import { cn } from '@/lib/utils'
 
 export function ActivityTimeline() {
@@ -67,6 +68,24 @@ export function ActivityTimeline() {
     setTimelineView,
   } = useUIStore()
   const waterfall = timelineView === 'waterfall'
+  const team = timelineView === 'team'
+  // The team board needs more room than the lanes; it keeps its own height.
+  const [teamHeight, setTeamHeightState] = useState(() => {
+    try {
+      return Number(localStorage.getItem('agents-observe-team-height')) || 300
+    } catch {
+      return 300
+    }
+  })
+  const setTeamHeight = useCallback((h: number) => {
+    setTeamHeightState(h)
+    try {
+      localStorage.setItem('agents-observe-team-height', String(h))
+    } catch {
+      // ignore
+    }
+  }, [])
+  const height = team ? teamHeight : timelineHeight
   const [fit, setFit] = useState(false)
   const [compact, setCompact] = useState(false)
 
@@ -139,7 +158,7 @@ export function ActivityTimeline() {
       e.preventDefault()
       resizing.current = true
       startY.current = e.clientY
-      startHeight.current = timelineHeight
+      startHeight.current = height
 
       const onMouseMove = (e: MouseEvent) => {
         if (!resizing.current) return
@@ -160,7 +179,8 @@ export function ActivityTimeline() {
         const maxHeight = window.innerHeight * 0.8
         const finalHeight = Math.max(60, Math.min(maxHeight, startHeight.current + delta))
         // Commit final height to React state
-        setTimelineHeight(finalHeight)
+        if (team) setTeamHeight(finalHeight)
+        else setTimelineHeight(finalHeight)
         document.removeEventListener('mousemove', onMouseMove)
         document.removeEventListener('mouseup', onMouseUp)
       }
@@ -168,7 +188,7 @@ export function ActivityTimeline() {
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [timelineHeight, setTimelineHeight],
+    [height, team, setTeamHeight, setTimelineHeight],
   )
 
   // Declared before the early return below — hooks must run on every render.
@@ -205,17 +225,14 @@ export function ActivityTimeline() {
 
   return (
     <TooltipProvider>
-      <div
-        ref={containerRef}
-        className="border-b border-border overflow-hidden"
-        style={{ height: timelineHeight }}
-      >
+      <div ref={containerRef} className="border-b border-border overflow-hidden" style={{ height }}>
         <div className="flex items-center justify-between px-3 py-1 border-b border-border/50">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-medium">{tr('Activity')}</span>
             <div className="flex rounded border border-border/70 p-px">
               {(
                 [
+                  ['team', tr('Team')],
                   ['waterfall', tr('Waterfall')],
                   ['lanes', tr('Lanes')],
                 ] as const
@@ -230,20 +247,22 @@ export function ActivityTimeline() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                   onClick={() => {
-                    if (view === 'waterfall' && rewindMode) exitRewindMode()
+                    if (view !== 'lanes' && rewindMode) exitRewindMode()
                     setTimelineView(view)
                   }}
                   title={
-                    view === 'waterfall'
-                      ? tr('One bar per prompt and subagent')
-                      : tr('One lane of event dots per agent')
+                    view === 'team'
+                      ? tr('The manager, its team, their reports and decisions')
+                      : view === 'waterfall'
+                        ? tr('One bar per prompt and subagent')
+                        : tr('One lane of event dots per agent')
                   }
                 >
                   {label}
                 </button>
               ))}
             </div>
-            {!waterfall && rewindMode && (
+            {timelineView === 'lanes' && rewindMode && (
               <span className="text-[9px] px-1.5 py-px rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                 {tr('REWIND')}
               </span>
@@ -281,7 +300,7 @@ export function ActivityTimeline() {
               </Button>
             )}
             {/* Rewind is single-session, lanes-only. */}
-            {!waterfall && !pane && (
+            {timelineView === 'lanes' && !pane && (
               <Button
                 variant="outline"
                 size="sm"
@@ -304,29 +323,30 @@ export function ActivityTimeline() {
                 )}
               </Button>
             )}
-            {ranges.map((r) => (
-              <Button
-                key={r}
-                variant={timeRange === r && !(waterfall && fit) ? 'default' : 'ghost'}
-                size="sm"
-                className="h-5 px-2 text-[10px]"
-                onClick={() => {
-                  // Rewind mode rebuilds the whole horizontal timeline
-                  // on range change — can take several seconds on large
-                  // sessions. Show the shared transition spinner so the
-                  // click feels acknowledged. Live mode is cheap; skip
-                  // the paint yield there.
-                  setFit(false)
-                  if (rewindMode) {
-                    runWithSpinner(() => setTimeRange(r))
-                  } else {
-                    setTimeRange(r)
-                  }
-                }}
-              >
-                {r}
-              </Button>
-            ))}
+            {!team &&
+              ranges.map((r) => (
+                <Button
+                  key={r}
+                  variant={timeRange === r && !(waterfall && fit) ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-5 px-2 text-[10px]"
+                  onClick={() => {
+                    // Rewind mode rebuilds the whole horizontal timeline
+                    // on range change — can take several seconds on large
+                    // sessions. Show the shared transition spinner so the
+                    // click feels acknowledged. Live mode is cheap; skip
+                    // the paint yield there.
+                    setFit(false)
+                    if (rewindMode) {
+                      runWithSpinner(() => setTimeRange(r))
+                    } else {
+                      setTimeRange(r)
+                    }
+                  }}
+                >
+                  {r}
+                </Button>
+              ))}
             {waterfall && (
               <Button
                 variant={fit ? 'default' : 'ghost'}
@@ -345,9 +365,11 @@ export function ActivityTimeline() {
           key={`${rewindMode}-${timeRange}`}
           data-scroll-area
           className={rewindMode && !waterfall ? 'h-full' : 'overflow-y-auto'}
-          style={{ height: timelineHeight - 32 }}
+          style={{ height: height - 32 }}
         >
-          {waterfall ? (
+          {team ? (
+            <TeamBoard sessionId={effectiveSessionId} />
+          ) : waterfall ? (
             <WaterfallView
               sessionId={effectiveSessionId}
               rangeMs={rangeMs}
