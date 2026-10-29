@@ -15,7 +15,12 @@ import { QueryBoundary } from '@/components/shared/query-boundary'
 import { EmptyState, Spinner } from '@/components/shared/loading-states'
 import { t, timeAgo as format } from '@/lib/i18n'
 
-export function EventStream() {
+export function EventStream({
+  onlyEventIds = null,
+}: {
+  /** Restrict the stream to these event ids (prompt view's selected node). */
+  onlyEventIds?: ReadonlySet<number> | null
+} = {}) {
   const {
     selectedSessionId,
     selectedAgentIds,
@@ -79,6 +84,8 @@ export function EventStream() {
     // Start with events that processEvent marked as displayable
     let filtered = enrichedEvents.filter((e) => e.displayEventStream)
 
+    if (onlyEventIds) filtered = filtered.filter((e) => onlyEventIds.has(e.id))
+
     // Agent chip filtering
     if (selectedAgentIds.length > 0) {
       filtered = filtered.filter((e) => selectedAgentIds.includes(e.agentId))
@@ -106,6 +113,7 @@ export function EventStream() {
     return filtered
   }, [
     enrichedEvents,
+    onlyEventIds,
     selectedAgentIds,
     deferredPrimaryFilters,
     deferredSecondaryFilters,

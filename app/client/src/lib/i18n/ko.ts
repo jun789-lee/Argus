@@ -355,6 +355,25 @@ export const ko: Record<string, string> = {
   'Cache expired': '캐시 만료됨',
   'Cache {time}': '캐시 {time}',
 
+  // ── Prompt view ─────────────────────────────────────────
+  Raw: 'Raw',
+  'Group events by prompt and subagent': '프롬프트·서브에이전트 단위로 묶어 보기',
+  'Show every event in order': '모든 이벤트를 순서대로 보기',
+  Running: '진행 중',
+  'Waiting for input': '입력 대기',
+  Failed: '실패',
+  Interrupted: '중단됨',
+  Subagent: '서브에이전트',
+  '(empty prompt)': '(빈 프롬프트)',
+  'Session event': '세션 이벤트',
+  '{n} tools': '도구 {n}',
+  '{n} errors': '오류 {n}',
+  Collapse: '접기',
+  Expand: '펼치기',
+  'No prompts yet': '아직 프롬프트가 없습니다',
+  'following latest': '최신 따라가는 중',
+  'Show full prompt': '프롬프트 전체 보기',
+
   // ── Token usage / pricing ───────────────────────────────
   Item: '항목',
   Tokens: '토큰',

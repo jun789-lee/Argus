@@ -290,6 +290,11 @@ interface UIState {
   sidebarTab: 'projects' | 'labels'
   setSidebarTab: (tab: 'projects' | 'labels') => void
 
+  // Session main view: prompt tree + per-node log, or the flat raw stream.
+  // Persisted so the choice survives reloads.
+  streamView: 'prompts' | 'raw'
+  setStreamView: (view: 'prompts' | 'raw') => void
+
   // Settings modal
   settingsOpen: boolean
   settingsTab: string
@@ -703,6 +708,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   setSidebarTab: (tab) => {
     localStorage.setItem('agents-observe-sidebar-tab', tab)
     set({ sidebarTab: tab })
+  },
+
+  streamView: localStorage.getItem('agents-observe-stream-view') === 'raw' ? 'raw' : 'prompts',
+  setStreamView: (view) => {
+    localStorage.setItem('agents-observe-stream-view', view)
+    set({ streamView: view })
   },
 
   settingsOpen: false,

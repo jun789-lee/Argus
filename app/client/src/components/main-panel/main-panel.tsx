@@ -8,6 +8,7 @@ import { ScopeBar } from './scope-bar'
 import { EventFilterBar } from './event-filter-bar'
 import { ActivityTimeline } from '@/components/timeline/activity-timeline'
 import { EventStream } from '@/components/event-stream/event-stream'
+import { PromptView } from '@/components/prompt-view/prompt-view'
 import { HomePage } from './home-page'
 import { ProjectPage } from './project-page'
 import { useRegionShortcuts } from '@/hooks/use-region-shortcuts'
@@ -69,6 +70,7 @@ function SessionView({ sessionId, projectId }: { sessionId: string; projectId: n
   const eventsQuery = useEffectiveEvents(effectiveSessionId)
   const rawEvents = eventsQuery.data
   const agents = useAgents(effectiveSessionId, rawEvents)
+  const streamView = useUIStore((s) => s.streamView)
 
   return (
     <EventProcessingProvider rawEvents={rawEvents} agents={agents}>
@@ -77,7 +79,11 @@ function SessionView({ sessionId, projectId }: { sessionId: string; projectId: n
         <ScopeBar />
         <EventFilterBar />
         <ActivityTimeline />
-        <EventStream key={sessionId} />
+        {streamView === 'prompts' && effectiveSessionId ? (
+          <PromptView key={effectiveSessionId} sessionId={effectiveSessionId} />
+        ) : (
+          <EventStream key={sessionId} />
+        )}
       </div>
     </EventProcessingProvider>
   )
