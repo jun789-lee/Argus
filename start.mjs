@@ -22,6 +22,7 @@ import {
 import { saveServerPortFile, removeServerPortFile } from './hooks/scripts/lib/fs.mjs'
 
 const config = getConfig()
+const isWin = process.platform === 'win32'
 const serverDir = resolve(config.installDir, 'app/server')
 const clientDir = resolve(config.installDir, 'app/client')
 const isDev = config.isDevRuntime
@@ -30,7 +31,7 @@ const skipInstall = process.argv.includes('--skip-install')
 function run(cmd, args, cwd, env = {}) {
   const rel = cwd.replace(config.installDir + '/', '') || '.'
   console.log(`\n> ${cmd} ${args.join(' ')}  (in ${rel})`)
-  execFileSync(cmd, args, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
+  execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: isWin, env: { ...process.env, ...env } })
 }
 
 // 1. Install dependencies
@@ -60,12 +61,14 @@ if (isDev) {
 
   const server = spawn('npm', ['run', 'dev'], {
     cwd: serverDir,
+    shell: isWin,
     stdio: 'inherit',
     env: { ...process.env, ...serverEnv },
   })
 
   const client = spawn('npm', ['run', 'dev'], {
     cwd: clientDir,
+    shell: isWin,
     stdio: 'inherit',
     env: { ...process.env, ...getClientEnv(config) },
   })
@@ -91,6 +94,7 @@ if (isDev) {
 
   const server = spawn('npx', ['tsx', 'src/index.ts'], {
     cwd: serverDir,
+    shell: isWin,
     stdio: 'inherit',
     env: { ...process.env, ...serverEnv },
   })
