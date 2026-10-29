@@ -2,6 +2,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useUIStore } from '@/stores/ui-store'
 import { ProjectList } from './project-list'
 import { LabelList } from './label-list'
+import { LoopList } from '@/components/loops/loop-list'
 import { useT } from '@/lib/i18n'
 
 interface ProjectLabelTabsProps {
@@ -22,13 +23,14 @@ export function ProjectLabelTabs({ collapsed }: ProjectLabelTabsProps) {
     // Narrow sidebar: render whichever view is active, without the tab
     // strip. Users rely on the icons themselves (Folder vs Tag) to
     // recognize which view they're in.
+    if (sidebarTab === 'loops') return <LoopList />
     return sidebarTab === 'labels' ? <LabelList collapsed /> : <ProjectList collapsed />
   }
 
   return (
     <Tabs
       value={sidebarTab}
-      onValueChange={(v) => setSidebarTab(v as 'projects' | 'labels')}
+      onValueChange={(v) => setSidebarTab(v as 'projects' | 'labels' | 'loops')}
       className="flex flex-col"
     >
       <TabsList className="w-full mt-2 h-7">
@@ -38,12 +40,18 @@ export function ProjectLabelTabs({ collapsed }: ProjectLabelTabsProps) {
         <TabsTrigger value="labels" className="flex-1 text-xs">
           {t('Labels')}
         </TabsTrigger>
+        <TabsTrigger value="loops" className="flex-1 text-xs">
+          {t('Loops')}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="projects" className="mt-1">
         <ProjectList collapsed={false} />
       </TabsContent>
       <TabsContent value="labels" className="mt-1">
         <LabelList collapsed={false} />
+      </TabsContent>
+      <TabsContent value="loops" className="mt-1">
+        <LoopList />
       </TabsContent>
     </Tabs>
   )

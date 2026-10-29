@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, CornerUpLeft, Lightbulb, Package, Users } from 'lucide-react'
+import { CornerUpLeft, Users } from 'lucide-react'
 import { useEffectiveEvents } from '@/hooks/use-effective-events'
 import { useUIStore } from '@/stores/ui-store'
 import { buildTurnTree, type TurnNode, type TurnStatus } from '@/lib/turn-tree'
-import { buildSessionPlanContext } from '@/lib/plan'
+import { buildPlan, buildSessionPlanContext, type SessionPlanContext } from '@/lib/plan'
+import { cycleFromMission, type StageKey } from '@/lib/cycle'
+import { CycleRing } from '@/components/cycle/cycle-ring'
 import {
   MANAGER_ROLE,
   buildMissionFlow,
@@ -72,6 +74,16 @@ export function TeamBoard({ sessionId }: { sessionId: string }) {
   const mission =
     (picked && findMissionOf(roots, picked)) || missions[missions.length - 1]?.node || null
 
+  // Most prompts are quick one-offs; by default show only missions with a
+  // team or a plan (plus the selected and the latest one).
+  const [showAll, setShowAll] = useState(false)
+  const latestId = missions[missions.length - 1]?.node.id
+  const shown = showAll
+    ? missions
+    : missions.filter(
+        (m) => m.members > 0 || m.total > 0 || m.node.id === mission?.id || m.node.id === latestId,
+      )
+
   const open = (id: string) => {
     setSelectedTurn({ sessionId, id })
     setStreamView('prompts')
@@ -86,11 +98,34 @@ export function TeamBoard({ sessionId }: { sessionId: string }) {
   }
   return (
     <div className="flex h-full flex-col gap-2 px-2 py-1.5">
-      <MissionStrip missions={missions} selectedId={mission.id} onSelect={open} />
-      <MissionFlowView
+      <div className="flex shrink-0 items-start gap-2">
+        <div className="flex shrink-0 flex-col rounded border border-border/70 p-px text-[10px]">
+          {([false, true] as const).map((all) => (
+            <button
+              key={String(all)}
+              type="button"
+              onClick={() => setShowAll(all)}
+              className={cn(
+                'rounded-sm px-1.5 leading-4 cursor-pointer',
+                showAll === all
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              title={all ? t('Show every prompt') : t('Only missions with a team or a plan')}
+            >
+              {all ? t('All ({n})', { n: missions.length }) : t('Key')}
+            </button>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <MissionStrip missions={shown} selectedId={mission.id} onSelect={open} />
+        </div>
+      </div>
+      <MissionCycleView
         key={mission.id}
         sessionId={sessionId}
         mission={mission}
+        session={session}
         allEvents={rawEvents ?? []}
         selectedId={picked}
         onOpen={open}
@@ -195,44 +230,43 @@ function MissionStrip({
   )
 }
 
-// ---- Mission flow ---------------------------------------------------------
+// ---- Mission cycle --------------------------------------------------------
 
-function Column({
-  label,
-  children,
-  className,
-}: {
-  label: string
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground/70">
-        {label}
-      </div>
-      {children}
-    </div>
-  )
+const STAGE_LABEL: Record<StageKey, string> = {
+  plan: 'Plan',
+  execute: 'Execute',
+  evaluate: 'Evaluate',
+  decide: 'Decide',
 }
 
-function Arrow() {
-  return (
-    <div className="flex shrink-0 items-center self-stretch pt-4 text-muted-foreground/40">
-      <ArrowRight className="h-3.5 w-3.5" />
-    </div>
-  )
+function itemIcon(item: { icon?: string; state?: string }): string {
+  if (item.icon) return item.icon
+  if (item.state === 'done') return '✅'
+  if (item.state === 'failed') return '❌'
+  if (item.state === 'running') return '🔄'
+  return '⬜'
 }
 
-function MissionFlowView({
+function firstBodyLine(text: string): string {
+  return text.split('\n').find((l) => l.trim() && !l.trim().startsWith('#')) ?? text
+}
+
+/**
+ * The selected mission as a loop: the ring on the left (where the work is
+ * in plan → execute → evaluate → decide), and on the right the cards for
+ * the stage you pick — defaulting to the stage happening now.
+ */
+function MissionCycleView({
   sessionId,
   mission,
+  session,
   allEvents,
   selectedId,
   onOpen,
 }: {
   sessionId: string
   mission: TurnNode
+  session: SessionPlanContext
   allEvents: Parameters<typeof finalOutput>[1]
   selectedId: string | null
   onOpen: (id: string) => void
@@ -243,6 +277,14 @@ function MissionFlowView({
     () => buildMissionFlow(mission, replies ?? [], output),
     [mission, replies, output],
   )
+  const plan = useMemo(
+    () => buildPlan(mission, replies ?? [], session),
+    [mission, replies, session],
+  )
+  const cycle = useMemo(() => cycleFromMission(mission, flow, plan), [mission, flow, plan])
+
+  const [picked, setPicked] = useState<StageKey | null>(null)
+  const stage: StageKey = picked ?? cycle.current ?? 'decide'
 
   const live = isLive(mission.status) || flow.members.some((m) => m.node.endedAt === null)
   const [now, setNow] = useState(() => Date.now())
@@ -252,103 +294,120 @@ function MissionFlowView({
     return () => clearInterval(id)
   }, [live])
 
+  const items = cycle.stages[stage].items
+  const emptyText =
+    stage === 'plan'
+      ? t('No task list for this mission.')
+      : stage === 'evaluate'
+        ? t('No checks (tests, builds, reviews) seen in this mission.')
+        : stage === 'decide'
+          ? live
+            ? t('In progress…')
+            : t('No decisions recorded yet.')
+          : t('The manager is working alone on this mission.')
+
   return (
-    <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto">
-      <Column label={t('Manager')} className="w-48 shrink-0">
+    <div className="flex min-h-0 flex-1 gap-3">
+      <CycleRing
+        cycle={cycle}
+        selected={stage}
+        onSelect={setPicked}
+        className="w-[250px] shrink-0"
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+        {/* Manager summary */}
         <button
           type="button"
           onClick={() => onOpen(mission.id)}
           className={cn(
-            'rounded-lg border-2 bg-background px-2.5 py-2 text-left text-[11px] cursor-pointer hover:bg-accent/40',
+            'flex items-center gap-2 rounded-lg border-2 bg-background px-2.5 py-1.5 text-left text-[11px] cursor-pointer hover:bg-accent/40',
             STATUS_RING[mission.status],
             selectedId === mission.id && 'ring-1 ring-primary',
           )}
         >
-          <div className="flex items-center gap-1.5">
-            <span className="text-base leading-none">{MANAGER_ROLE.icon}</span>
-            <span className="font-medium">{t(MANAGER_ROLE.label)}</span>
-            <span className={cn('ml-auto h-2 w-2 rounded-full', STATUS_DOT[mission.status])} />
-          </div>
-          <div className="mt-1 line-clamp-2 text-muted-foreground">{nodeTitle(mission)}</div>
-          <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+          <span className="text-base leading-none">{MANAGER_ROLE.icon}</span>
+          <span className="font-medium">{t(MANAGER_ROLE.label)}</span>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            {nodeTitle(mission)}
+          </span>
+          <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
             {statusLabel(mission.status)} ·{' '}
             {formatDuration(Math.max(0, (mission.endedAt ?? now) - mission.startedAt))}
-          </div>
+          </span>
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', STATUS_DOT[mission.status])} />
         </button>
-      </Column>
 
-      <Arrow />
+        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+          {t(STAGE_LABEL[stage])}
+          {cycle.stages[stage].estimated && (
+            <span className="normal-case tracking-normal text-muted-foreground/60">
+              · {t('estimated from commands and task names')}
+            </span>
+          )}
+        </div>
 
-      <Column label={t('Team (delegated)')} className="w-64 shrink-0">
-        {flow.members.length === 0 ? (
+        {stage === 'execute' && flow.members.length > 0 ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-1.5">
+            {flow.members.map((m) => (
+              <MemberCardView
+                key={m.node.id}
+                member={m}
+                now={now}
+                selected={selectedId === m.node.id}
+                onOpen={() => onOpen(m.node.id)}
+              />
+            ))}
+            {items
+              .filter((i) => i.id === 'manager-tools')
+              .map((i) => (
+                <div
+                  key={i.id}
+                  className="rounded-lg border border-dashed border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground"
+                >
+                  🛠️ {t('The manager ran {n} tools itself', { n: i.label })}
+                </div>
+              ))}
+          </div>
+        ) : items.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-2 text-[11px] text-muted-foreground">
-            {t('The manager is working alone on this mission.')}
+            {emptyText}
           </div>
         ) : (
-          flow.members.map((m) => (
-            <MemberCardView
-              key={m.node.id}
-              member={m}
-              now={now}
-              selected={selectedId === m.node.id}
-              onOpen={() => onOpen(m.node.id)}
-            />
-          ))
-        )}
-      </Column>
-
-      <Arrow />
-
-      <Column label={t('Decisions')} className="w-64 shrink-0">
-        {flow.decisions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-2.5 py-2 text-[11px] text-muted-foreground">
-            {flow.members.length > 0 && flow.members.every((m) => m.node.endedAt === null)
-              ? t('Waiting for the team to report.')
-              : t('No decisions recorded yet.')}
-          </div>
-        ) : (
-          flow.decisions.map((d) => (
+          items.map((item) => (
             <button
-              key={d.timestamp}
+              key={item.id}
               type="button"
-              onClick={() => onOpen(mission.id)}
-              title={d.text.slice(0, 600)}
-              className="flex gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-left text-[11px] cursor-pointer hover:bg-amber-500/10"
+              onClick={() => item.nodeId && onOpen(item.nodeId)}
+              title={item.label.slice(0, 600)}
+              className={cn(
+                'flex items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[11px] cursor-pointer',
+                item.id === 'output'
+                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
+                  : item.icon === '💡'
+                    ? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
+                    : 'border-border/60 hover:bg-accent/40',
+              )}
             >
-              <Lightbulb className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" />
-              <span className="line-clamp-2">{d.summary}</span>
+              <span className="mt-px shrink-0">{itemIcon(item)}</span>
+              <span className="min-w-0 flex-1">
+                <span className={item.id === 'output' ? 'line-clamp-3' : 'line-clamp-2'}>
+                  {item.id === 'output'
+                    ? firstBodyLine(item.label)
+                    : item.id === 'manager-tools'
+                      ? t('The manager ran {n} tools itself', { n: item.label })
+                      : item.label}
+                </span>
+                {item.detail && (
+                  <span className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
+                    📄 {item.detail}
+                  </span>
+                )}
+              </span>
+              {item.icon && item.state === 'failed' && <span className="shrink-0">❌</span>}
             </button>
           ))
         )}
-      </Column>
-
-      <Arrow />
-
-      <Column label={t('Deliverable')} className="w-56 shrink-0">
-        <button
-          type="button"
-          onClick={() => onOpen(mission.id)}
-          title={flow.output?.slice(0, 600)}
-          className={cn(
-            'flex gap-1.5 rounded-lg border px-2.5 py-2 text-left text-[11px] cursor-pointer',
-            flow.output
-              ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
-              : 'border-dashed border-border/60 text-muted-foreground',
-          )}
-        >
-          <Package
-            className={cn('mt-px h-3.5 w-3.5 shrink-0', flow.output ? 'text-green-600' : '')}
-          />
-          <span className="line-clamp-3">
-            {flow.output
-              ? (flow.output.split('\n').find((l) => l.trim() && !l.trim().startsWith('#')) ??
-                flow.output)
-              : live
-                ? t('In progress…')
-                : t('No final answer recorded.')}
-          </span>
-        </button>
-      </Column>
+      </div>
     </div>
   )
 }

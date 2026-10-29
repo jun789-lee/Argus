@@ -82,3 +82,59 @@ auto-loop 설계(`docs/specs/2026-10-29-auto-loop-design.md`)를 진행하는 �
 - Windows에서 원래부터 실패하는 테스트: 서버 9개, hook 17개(경로·권한 관련). 이 숫자가 늘지 않으면 정상입니다.
 - `npm`/`npx`/`tsc`는 Git Bash가 아니라 **PowerShell**에서 실행해야 합니다. Git Bash에서는 npm 스크립트가 `node`를 못 찾습니다.
 - 실행 중인 hook 파일(`hooks/scripts/`)을 고치면 이 PC의 **모든 세션** 기록에 바로 영향이 갑니다. 고친 직후 `node --check`로 문법을 확인하세요(실제로 1분간 기록이 멈춘 적이 있습니다).
+
+---
+
+## 6. 추가 (2026-10-29): M2 역할 분담과 데이터 요청
+
+사용자 결정: **M2의 화면은 프롬프트 보기 쪽 세션이, 데이터(서버 테이블·API·러너 진행 보고)는 auto-loop 세션이** 맡습니다.
+약속은 설계 문서 §10.2·§10.3입니다. 화면 쪽은 이미 그 약속에 맞춰 만들어 두었습니다(`wip/team-board` 브랜치).
+
+- 클라이언트 타입·변환: `app/client/src/lib/loops.ts` (`LoopRun`, `LoopIteration`, `LoopGate`, `cycleFromRun`)
+- API 클라이언트: `app/client/src/lib/api-client.ts`의 `getLoopRuns`, `getLoopRun`, `decideLoopGate`, `stopLoopRun`. 404면 화면에 "준비 중"을 표시합니다.
+- 화면: 사이드바 [루프] 탭(`components/loops/loop-list.tsx`), 실행 상세(`components/loops/loop-run-view.tsx`). 실행 상세는 순환 고리, 점수 그래프, 확인 요청 카드, 반복 표, 중지로 구성됩니다.
+
+### 화면이 기대하는 응답 모양 (camelCase JSON)
+
+```ts
+// GET /api/loops/runs → LoopRun[]   (또는 { runs: LoopRun[] })
+interface LoopRun {
+  id: string; loopName: string
+  state: 'preparing' | 'calibrating' | 'awaiting_start' | 'working' | 'checking'
+       | 'judging' | 'alert' | 'paused' | 'finishing' | 'finished'
+  terminalReason: string | null          // 러너의 TerminalReason
+  bestIteration: number | null; baselineScore: number | null; bestScore: number | null
+  direction?: 'maximize' | 'minimize'     // 스펙 goal의 방향 (변화율 부호에 사용)
+  iterationsDone: number; iterationsMax?: number | null   // budget.maxIterations
+  costUsd: number; startedAt: number; endedAt: number | null   // ms
+}
+// GET /api/loops/runs/:id → { run: LoopRun, iterations: LoopIteration[], gates: LoopGate[] }
+interface LoopIteration {
+  runId: string; n: number; operator?: string; sessionId: string | null
+  commit?: string | null; hypothesis?: string | null
+  verdict: Verdict | null                 // 진행 중이면 null
+  score: number | null; delta?: number | null; deltaSe?: number | null; sealedScore?: number | null
+  costUsd?: number; durationS?: number | null
+}
+interface LoopGate {
+  id: string; runId: string; kind: 'start' | 'alert' | 'budget' | 'review'
+  state: 'pending' | 'decided'; request?: { reason?: string, ... } | null
+  decision?: string | null; decidedBy?: 'ui' | 'terminal' | null; createdAt: number; decidedAt?: number | null
+}
+```
+
+### 요청 사항
+
+1. **`state`를 위 10개 값 중 하나로 보고해 주세요.** 순환 고리의 "지금 단계"가 이 값으로 정해집니다.
+   - 설계: preparing / calibrating / awaiting_start
+   - 실행: working
+   - 평가: checking
+   - 판단: judging / alert / finishing
+2. **반복을 시작할 때 미리 기록해 주세요.** `POST /api/loops/runs/:id/iterations`로 `n`과 `sessionId`를 `verdict: null` 상태로 먼저 보내 주세요. 그래야 "실행" 칸에 지금 일하는 작업자 세션이 바로 연결됩니다. 끝나면 같은 `n`으로 갱신하면 됩니다.
+3. **확인 요청에 대한 응답 값:** 화면은 `POST /api/loops/gates/:id/decision`에 `{ "decision": … }`를 보냅니다. kind별 값은 다음과 같습니다.
+   - `start` → `start` / `cancel`
+   - `alert` → `continue` / `reject` / `stop`
+   - `budget` → `extend` / `finish`
+   - `review` → `ack`
+4. **중지:** `POST /api/loops/runs/:id/stop` (본문 없음)
+5. **WebSocket `loop_update`:** 아직은 화면이 3~5초마다 다시 불러오고 있어서 없어도 동작합니다. 생기면 즉시 갱신으로 바꾸겠습니다.

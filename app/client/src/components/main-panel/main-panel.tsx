@@ -15,11 +15,14 @@ import { useRegionShortcuts } from '@/hooks/use-region-shortcuts'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { SessionPaneProvider, COMPARE_PANE_STYLES } from './session-scope'
+import { LoopRunView } from '@/components/loops/loop-run-view'
 
 export function MainPanel() {
   const { selectedProjectId, selectedProjectSlug, selectedSessionId, routeError } = useUIStore()
   const compareSessionIds = useUIStore((s) => s.compareSessionIds)
+  const selectedLoopRunId = useUIStore((s) => s.selectedLoopRunId)
 
+  if (selectedLoopRunId) return <LoopRunView key={selectedLoopRunId} runId={selectedLoopRunId} />
   if (compareSessionIds) return <CompareView sessionIds={compareSessionIds} />
 
   // A session route renders as soon as we know the session id — even with no

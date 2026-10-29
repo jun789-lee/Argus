@@ -8,6 +8,7 @@ import type {
   NotificationPayload,
   Filter,
 } from '@/types'
+import type { LoopRun, LoopRunDetail } from './loops'
 
 export interface AssistantMessage {
   timestamp: number
@@ -265,6 +266,37 @@ export const api = {
     }
     return { ok: true, status: 200, data: body as TranscriptStatsData }
   },
+
+  // ---- Auto-loop runs (server side lands with the auto-loop M2 work) ----
+  // Each returns 'unavailable' while the endpoints don't exist yet (404),
+  // so the loop screens can say so instead of toasting an error.
+  getLoopRuns: async (): Promise<LoopRun[] | 'unavailable'> => {
+    const res = await fetch(`${API_BASE}/loops/runs`)
+    if (res.status === 404) return 'unavailable'
+    if (!res.ok) throw new ApiError(res.status, '/loops/runs', `HTTP ${res.status}`)
+    const body = await res.json()
+    return (Array.isArray(body) ? body : (body.runs ?? [])) as LoopRun[]
+  },
+  getLoopRun: async (id: string): Promise<LoopRunDetail | 'unavailable'> => {
+    const path = `/loops/runs/${encodeURIComponent(id)}`
+    const res = await fetch(`${API_BASE}${path}`)
+    if (res.status === 404) return 'unavailable'
+    if (!res.ok) throw new ApiError(res.status, path, `HTTP ${res.status}`)
+    const body = await res.json()
+    return {
+      run: body.run ?? body,
+      iterations: body.iterations ?? [],
+      gates: body.gates ?? [],
+    } as LoopRunDetail
+  },
+  decideLoopGate: (gateId: string, decision: string) =>
+    fetchJson<unknown>(`/loops/gates/${encodeURIComponent(gateId)}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision }),
+    }),
+  stopLoopRun: (runId: string) =>
+    fetchJson<unknown>(`/loops/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' }),
 
   /** Whether Claude had its to-do list tools in this session (null: unknown). */
   getToolAvailability: async (

@@ -343,8 +343,12 @@ interface UIState {
 
   // Sidebar Projects/Labels tab selector — persisted so the sidebar
   // re-opens on whichever view the user was last using.
-  sidebarTab: 'projects' | 'labels'
-  setSidebarTab: (tab: 'projects' | 'labels') => void
+  sidebarTab: 'projects' | 'labels' | 'loops'
+  setSidebarTab: (tab: 'projects' | 'labels' | 'loops') => void
+
+  // Auto-loop run open in the main panel (not routed yet — WIP).
+  selectedLoopRunId: string | null
+  setSelectedLoopRunId: (id: string | null) => void
 
   // Session main view: prompt tree + per-node log, or the flat raw stream.
   // Persisted so the choice survives reloads.
@@ -833,11 +837,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 
   sidebarTab:
-    (localStorage.getItem('agents-observe-sidebar-tab') as 'projects' | 'labels') || 'projects',
+    (localStorage.getItem('agents-observe-sidebar-tab') as 'projects' | 'labels' | 'loops') ||
+    'projects',
   setSidebarTab: (tab) => {
     localStorage.setItem('agents-observe-sidebar-tab', tab)
     set({ sidebarTab: tab })
   },
+
+  selectedLoopRunId: null,
+  setSelectedLoopRunId: (id) => set({ selectedLoopRunId: id }),
 
   streamView: localStorage.getItem('agents-observe-stream-view') === 'raw' ? 'raw' : 'prompts',
   setStreamView: (view) => {
