@@ -300,3 +300,59 @@ describe('task-notification merging', () => {
     expect(p1.children[0].status).toBe('failed')
   })
 })
+
+describe('foreground subagent without SubagentStop', () => {
+  test('the Agent tool response ends it and supplies result and usage', () => {
+    const A = 'agent-fg'
+    const [p1] = build([
+      ev('UserPromptSubmit', 1, { prompt_id: 'p1', prompt: 'read the page' }),
+      ev('PreToolUse', 2, {
+        prompt_id: 'p1',
+        tool_name: 'Agent',
+        tool_use_id: 'tf',
+        tool_input: { description: 'Read NFL page' },
+      }),
+      ev('PreToolUse', 3, { prompt_id: 'p1', tool_name: 'WebFetch', tool_use_id: 'w' }, A),
+      ev('PostToolUse', 20, {
+        prompt_id: 'p1',
+        tool_name: 'Agent',
+        tool_use_id: 'tf',
+        tool_response: {
+          status: 'completed',
+          agentId: A,
+          agentType: 'web-fetch',
+          content: [{ type: 'text', text: 'Could not read the page.' }],
+          totalDurationMs: 17512,
+          totalTokens: 9294,
+          totalToolUseCount: 7,
+        },
+      }),
+      ev('Stop', 21, { prompt_id: 'p1' }),
+    ])
+    expect(p1.status).toBe('done') // not stuck in "background"
+    expect(p1.children[0]).toMatchObject({
+      status: 'done',
+      endedAt: 20,
+      agentType: 'web-fetch',
+      result: 'Could not read the page.',
+      usage: { tokens: 9294, toolUses: 7, durationMs: 17512 },
+    })
+  })
+
+  test('async_launched is not an end signal', () => {
+    const A = 'agent-bg2'
+    const [p1] = build([
+      ev('UserPromptSubmit', 1, { prompt_id: 'p1', prompt: 'x' }),
+      ev('PostToolUse', 2, {
+        prompt_id: 'p1',
+        tool_name: 'Agent',
+        tool_use_id: 'tb',
+        tool_response: { status: 'async_launched', agentId: A, isAsync: true },
+      }),
+      ev('PreToolUse', 3, { tool_name: 'Read', tool_use_id: 'r' }, A),
+      ev('Stop', 4, { prompt_id: 'p1' }),
+    ])
+    expect(p1.children[0].status).toBe('running')
+    expect(p1.status).toBe('background')
+  })
+})

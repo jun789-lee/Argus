@@ -190,6 +190,8 @@ export function buildTurnTree<E extends TreeEvent>(
   const toolCallPrompt = new Map<string, string>() // tool_use_id → prompt_id
   const notes = new Map<string, TaskNotification>() // task-id → latest notification
   const noteAt = new Map<string, number>() // task-id → when it arrived
+  // child agentId → its Agent tool call's final response (foreground agents)
+  const agentReturns = new Map<string, { at: number; response: Record<string, unknown> }>()
   let lastRealPrompt: string | null = null
   for (const e of events) {
     const p = e.payload ?? {}
@@ -228,9 +230,17 @@ export function buildTurnTree<E extends TreeEvent>(
       const spawn: Spawn = { parentAgentId: e.agentId, promptId: str(p.prompt_id), input }
       if (e.hookName === 'PreToolUse' && useId) agentCalls.set(useId, spawn)
       if (e.hookName === 'PostToolUse') {
-        const child = str((p.tool_response as Record<string, unknown> | undefined)?.agentId)
+        const response = (p.tool_response ?? {}) as Record<string, unknown>
+        const child = str(response.agentId)
         const call = useId ? agentCalls.get(useId) : undefined
         if (child && !spawnedBy.has(child)) spawnedBy.set(child, call ?? spawn)
+        // A foreground agent's tool call returns when it finishes — and its
+        // SubagentStop often never arrives — so the response is the end
+        // signal, carrying the report and usage. Background agents return
+        // 'async_launched' at once and finish via a task-notification.
+        if (child && response.status && response.status !== 'async_launched') {
+          agentReturns.set(child, { at: e.timestamp, response })
+        }
       }
     }
   }
@@ -326,16 +336,35 @@ export function buildTurnTree<E extends TreeEvent>(
       node.agentType = node.agentType ?? str(spawn.input.subagent_type)
     }
     node.title = node.title || (node.agentType ?? '')
-    // The report: the task-notification's <result> (background agents),
-    // else the SubagentStop's last message (foreground agents).
+    // The report and usage: the task-notification (background agents), else
+    // the Agent tool's final response (foreground), else SubagentStop.
     const note = notes.get(node.agentId)
-    node.result = note?.result ?? stopReplies.get(node.agentId) ?? null
-    node.usage = note?.usage ?? null
-    if (note && node.endedAt === null) {
-      node.endedAt = noteAt.get(node.agentId) ?? node.lastEventAt
+    const ret = agentReturns.get(node.agentId)
+    const r = ret?.response
+    const num = (v: unknown) => (typeof v === 'number' ? v : null)
+    const returnedText = Array.isArray(r?.content)
+      ? (r!.content as Array<Record<string, unknown>>)
+          .map((b) => (b?.type === 'text' && typeof b.text === 'string' ? b.text : ''))
+          .filter(Boolean)
+          .join('\n\n') || null
+      : null
+    node.result = note?.result ?? returnedText ?? stopReplies.get(node.agentId) ?? null
+    node.usage =
+      note?.usage ??
+      (r
+        ? {
+            tokens: num(r.totalTokens),
+            toolUses: num(r.totalToolUseCount),
+            durationMs: num(r.totalDurationMs),
+          }
+        : null)
+    node.agentType = node.agentType ?? str(r?.agentType)
+    if (node.endedAt === null && (note || ret)) {
+      node.endedAt = (note ? noteAt.get(node.agentId) : ret?.at) ?? node.lastEventAt
       node.status = 'done'
     }
-    if (note?.status && note.status !== 'completed') node.status = 'failed'
+    const finalStatus = note?.status ?? str(r?.status)
+    if (finalStatus && finalStatus !== 'completed') node.status = 'failed'
     const parentSubagent =
       spawn && !isMain(spawn.parentAgentId) ? subagents.get(spawn.parentAgentId) : undefined
     const spawnPrompt = canonical(spawn?.promptId ?? null)

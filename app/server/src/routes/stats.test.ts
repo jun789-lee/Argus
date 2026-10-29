@@ -52,14 +52,22 @@ describe('GET /api/stats/subagent-runs', () => {
       prompt:
         '<task-notification>\n<task-id>a2</task-id>\n<status>completed</status>\n</task-notification>',
     })
+    // Foreground, no SubagentStart/Stop: ends at its Agent call's 'completed' response.
+    await post('a4', 'PreToolUse', 3000, { tool_name: 'WebFetch', tool_use_id: 'f1' })
+    await post(S, 'PostToolUse', 5500, {
+      tool_name: 'Agent',
+      tool_use_id: 'call-a4',
+      tool_response: { status: 'completed', agentId: 'a4', agentType: 'web-fetch' },
+    })
     // Still running: no stop yet — excluded.
     await post('a3', 'SubagentStart', 5000, { agent_type: 'Explore' })
 
     const res = await app.request('/api/stats/subagent-runs')
     const body = (await res.json()) as any
-    expect(body.total).toBe(2)
+    expect(body.total).toBe(3)
+    expect(body.byType['web-fetch']).toEqual({ durationsMs: [2500], tools: [1] })
     expect(body.byType.Explore).toEqual({ durationsMs: [3000], tools: [2] })
     expect(body.byType['general-purpose']).toEqual({ durationsMs: [7000], tools: [1] })
-    expect(body.all.durationsMs.sort()).toEqual([3000, 7000])
+    expect(body.all.durationsMs.sort((a: number, b: number) => a - b)).toEqual([2500, 3000, 7000])
   })
 })

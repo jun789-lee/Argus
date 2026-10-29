@@ -1333,7 +1333,8 @@ export class SqliteAdapter implements EventStore {
   async getSubagentRuns(limit = 2000): Promise<SubagentRun[]> {
     // One row per finished subagent: its own events give start, tool count
     // and type; it finished at its SubagentStop (logged by the parent, naming
-    // it in payload.agent_id) or its task-notification, whichever came first.
+    // it in payload.agent_id), its task-notification, or its Agent call's
+    // 'completed' response — whichever came first.
     return this.db
       .prepare(
         `
@@ -1348,7 +1349,12 @@ export class SqliteAdapter implements EventStore {
         WHERE e.agent_id NOT LIKE e.session_id || '%'
         GROUP BY e.agent_id
       )
-      SELECT r.agentId, r.startedAt, r.tools, r.agentType,
+      SELECT r.agentId, r.startedAt, r.tools,
+        COALESCE(r.agentType,
+          (SELECT json_extract(a.payload, '$.tool_response.agentType') FROM events a
+           WHERE a.session_id = r.sessionId AND a.hook_name = 'PostToolUse'
+             AND json_extract(a.payload, '$.tool_response.agentId') = r.agentId
+           LIMIT 1)) AS agentType,
         MIN(
           COALESCE((SELECT MIN(s.timestamp) FROM events s
                     WHERE s.session_id = r.sessionId AND s.hook_name = 'SubagentStop'
@@ -1356,7 +1362,14 @@ export class SqliteAdapter implements EventStore {
           COALESCE((SELECT MIN(n.timestamp) FROM events n
                     WHERE n.session_id = r.sessionId AND n.hook_name = 'UserPromptSubmit'
                       AND json_extract(n.payload, '$.prompt')
-                          LIKE '%<task-id>' || r.agentId || '</task-id>%'), 9e15)
+                          LIKE '%<task-id>' || r.agentId || '</task-id>%'), 9e15),
+          -- Foreground agents: the Agent call returns when the agent is done
+          -- (their SubagentStop often never arrives).
+          COALESCE((SELECT MIN(a.timestamp) FROM events a
+                    WHERE a.session_id = r.sessionId AND a.hook_name = 'PostToolUse'
+                      AND json_extract(a.payload, '$.tool_name') = 'Agent'
+                      AND json_extract(a.payload, '$.tool_response.agentId') = r.agentId
+                      AND json_extract(a.payload, '$.tool_response.status') = 'completed'), 9e15)
         ) AS endedAt
       FROM runs r
       ORDER BY r.startedAt DESC
