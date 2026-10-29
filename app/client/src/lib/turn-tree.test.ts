@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildTurnTree, type TreeEvent } from './turn-tree'
+import { buildTurnTree, parseTaskNotification, type TreeEvent } from './turn-tree'
 
 const S = 'sess-1'
 let nextId = 1
@@ -216,5 +216,87 @@ describe('buildTurnTree', () => {
     const a = build(events)
     const b = build([...events].reverse())
     expect(b.map((n) => [n.id, n.events.length])).toEqual(a.map((n) => [n.id, n.events.length]))
+  })
+})
+
+describe('task-notification merging', () => {
+  const A = 'agent-bg'
+  const note = (taskId: string, toolUseId: string, status = 'completed') =>
+    [
+      '<task-notification>',
+      `<task-id>${taskId}</task-id>`,
+      `<tool-use-id>${toolUseId}</tool-use-id>`,
+      `<status>${status}</status>`,
+      `<summary>Agent "Research" finished</summary>`,
+      '<result>## Findings\nAll good.</result>',
+      '<usage><subagent_tokens>1200</subagent_tokens><tool_uses>7</tool_uses><duration_ms>65000</duration_ms></usage>',
+      '</task-notification>',
+    ].join('\n')
+
+  // Prompt p1 launches a background subagent, stops, then the notification
+  // turn (its own prompt_id n1) wraps up.
+  const events = () => [
+    ev('UserPromptSubmit', 1, { prompt_id: 'p1', prompt: 'research loops' }),
+    ev('PreToolUse', 2, {
+      prompt_id: 'p1',
+      tool_name: 'Agent',
+      tool_use_id: 'toolu_1',
+      tool_input: { description: 'Research', run_in_background: true },
+    }),
+    ev('PostToolUse', 3, {
+      prompt_id: 'p1',
+      tool_name: 'Agent',
+      tool_use_id: 'toolu_1',
+      tool_response: { agentId: A, isAsync: true },
+    }),
+    ev('SubagentStart', 3, { agent_id: A }, A),
+    ev('Stop', 4, { prompt_id: 'p1', last_assistant_message: 'Waiting for the agent.' }),
+    ev('PreToolUse', 5, { prompt_id: 'p1', tool_name: 'WebSearch', tool_use_id: 's1' }, A),
+  ]
+
+  test('parses the notification message', () => {
+    expect(parseTaskNotification(note(A, 'toolu_1'))).toMatchObject({
+      taskId: A,
+      toolUseId: 'toolu_1',
+      status: 'completed',
+      summary: 'Agent "Research" finished',
+      result: '## Findings\nAll good.',
+      usage: { tokens: 1200, toolUses: 7, durationMs: 65000 },
+    })
+    expect(parseTaskNotification('just a prompt')).toBeNull()
+  })
+
+  test('while the subagent runs, the prompt is "background", not done', () => {
+    const [p1] = build(events())
+    expect(p1).toMatchObject({ status: 'background', endedAt: null })
+    expect(p1.children[0]).toMatchObject({ id: A, status: 'running', result: null })
+  })
+
+  test('the notification turn merges into the origin prompt and fills the result', () => {
+    const roots = build([
+      ...events(),
+      ev('UserPromptSubmit', 10, { prompt_id: 'n1', prompt: note(A, 'toolu_1') }),
+      ev('PreToolUse', 11, { prompt_id: 'n1', tool_name: 'Write', tool_use_id: 'w1' }),
+      ev('Stop', 12, { prompt_id: 'n1', last_assistant_message: 'Summary written.' }),
+    ])
+    expect(roots.map((n) => n.id)).toEqual(['p1']) // no separate "prompt" for n1
+    const [p1] = roots
+    expect(p1).toMatchObject({ status: 'done', endedAt: 12, promptIds: ['p1', 'n1'] })
+    expect(p1.toolCount).toBe(2) // Agent + Write; the subagent's WebSearch counts for the subagent
+    const sub = p1.children[0]
+    expect(sub).toMatchObject({
+      status: 'done',
+      endedAt: 10,
+      result: '## Findings\nAll good.',
+      usage: { tokens: 1200, toolUses: 7, durationMs: 65000 },
+    })
+  })
+
+  test('a failed task marks the subagent failed', () => {
+    const [p1] = build([
+      ...events(),
+      ev('UserPromptSubmit', 10, { prompt_id: 'n1', prompt: note(A, 'toolu_1', 'failed') }),
+    ])
+    expect(p1.children[0].status).toBe('failed')
   })
 })

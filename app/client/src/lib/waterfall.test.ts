@@ -16,6 +16,9 @@ function node(p: Partial<TurnNode> & Pick<TurnNode, 'id' | 'startedAt'>): TurnNo
     status: 'done',
     toolCount: 0,
     errorCount: 0,
+    result: null,
+    usage: null,
+    promptIds: [],
     ...p,
   }
 }

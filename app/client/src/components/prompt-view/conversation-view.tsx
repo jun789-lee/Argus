@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ChevronDown, ChevronRight, MessageSquareText, Sparkles } from 'lucide-react'
+import { Bell, ChevronDown, ChevronRight, MessageSquareText, Sparkles } from 'lucide-react'
 import { api, type AssistantMessage } from '@/lib/api-client'
 import { useProcessedEvents } from '@/agents/event-processing-context'
 import { mdComponents } from '@/agents/claude-code/event-detail'
 import { resolveEventIcon, resolveEventColor } from '@/lib/event-icon-registry'
 import { useUIStore } from '@/stores/ui-store'
-import type { TurnNode } from '@/lib/turn-tree'
+import { parseTaskNotification, type TaskNotification, type TurnNode } from '@/lib/turn-tree'
 import type { EnrichedEvent } from '@/agents/types'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -19,6 +19,7 @@ const HIDDEN_HOOKS = new Set(['UserPromptSubmit', 'Stop', 'SubagentStart'])
 type Item =
   | { kind: 'text'; ts: number; text: string }
   | { kind: 'activity'; ts: number; events: EnrichedEvent[] }
+  | { kind: 'notice'; ts: number; note: TaskNotification }
 
 /**
  * Conversation log for one turn node: Claude's text replies (from the
@@ -31,6 +32,7 @@ export function ConversationView({
   output,
   follow,
   onOpenEvent,
+  onSelectNode,
 }: {
   sessionId: string
   node: TurnNode
@@ -40,6 +42,8 @@ export function ConversationView({
   follow: boolean
   /** Jump to an event in the full log. */
   onOpenEvent: (eventId: number) => void
+  /** Open a subagent (from a task-notification row). */
+  onSelectNode?: (id: string) => void
 }) {
   const messages = useAssistantMessages(sessionId, node, output)
 
@@ -60,6 +64,16 @@ export function ConversationView({
       {items.map((item, i) =>
         item.kind === 'text' ? (
           <ReplyBubble key={`t${i}`} text={item.text} />
+        ) : item.kind === 'notice' ? (
+          <NoticeRow
+            key={`n${i}`}
+            note={item.note}
+            onOpen={
+              item.note.taskId && node.children.some((c) => c.id === item.note.taskId)
+                ? () => onSelectNode?.(item.note.taskId!)
+                : undefined
+            }
+          />
         ) : (
           <ActivityGroup
             key={`a${item.events[0].id}`}
@@ -98,9 +112,10 @@ export function useAssistantMessages(
   node: TurnNode,
   output: string | null,
 ): AssistantMessage[] | null | undefined {
-  const by = node.kind === 'subagent' ? { agentId: node.agentId } : { promptId: node.id }
+  const promptIds = node.promptIds.length > 0 ? node.promptIds.join(',') : node.id
+  const by = node.kind === 'subagent' ? { agentId: node.agentId } : { promptId: promptIds }
   const { data, refetch } = useQuery({
-    queryKey: ['assistant-messages', sessionId, node.kind, node.id],
+    queryKey: ['assistant-messages', sessionId, node.kind, node.id, promptIds],
     queryFn: () => api.getAssistantMessages(sessionId, by),
     enabled: node.kind !== 'system',
     staleTime: 5_000,
@@ -119,6 +134,12 @@ export function buildItems(
   output: string | null,
 ): Item[] {
   const ids = new Set(node.events.map((e) => e.id))
+  // Task-notifications merged into this prompt show as their own rows.
+  const notices: Item[] = node.events.flatMap((e) => {
+    if (e.hookName !== 'UserPromptSubmit') return []
+    const note = parseTaskNotification(e.payload?.prompt)
+    return note ? [{ kind: 'notice' as const, ts: e.timestamp, note }] : []
+  })
   const events = enriched
     .filter((e) => ids.has(e.id) && e.displayEventStream && !HIDDEN_HOOKS.has(e.hookName))
     .sort((a, b) => a.timestamp - b.timestamp || a.id - b.id)
@@ -142,10 +163,55 @@ export function buildItems(
     if (last?.kind === 'activity') last.events.push(m.event!)
     else items.push({ kind: 'activity', ts: m.ts, events: [m.event!] })
   }
-  return items
+  if (notices.length === 0) return items
+  // Splice notices in by time (they split activity groups like replies do).
+  const out: Item[] = []
+  const queue = [...notices]
+  for (const item of items) {
+    while (queue.length && queue[0].ts <= item.ts) out.push(queue.shift()!)
+    if (item.kind === 'activity' && queue.length && queue[0].ts <= lastTs(item)) {
+      const before = item.events.filter((e) => e.timestamp < queue[0].ts)
+      const after = item.events.filter((e) => e.timestamp >= queue[0].ts)
+      if (before.length) out.push({ kind: 'activity', ts: before[0].timestamp, events: before })
+      out.push(queue.shift()!)
+      if (after.length) out.push({ kind: 'activity', ts: after[0].timestamp, events: after })
+      continue
+    }
+    out.push(item)
+  }
+  return [...out, ...queue]
 }
 
-function MarkdownText({ text }: { text: string }) {
+function lastTs(item: Item): number {
+  return item.kind === 'activity' ? item.events[item.events.length - 1].timestamp : item.ts
+}
+
+function NoticeRow({ note, onOpen }: { note: TaskNotification; onOpen?: () => void }) {
+  const failed = note.status !== null && note.status !== 'completed'
+  return (
+    <button
+      type="button"
+      disabled={!onOpen}
+      onClick={onOpen}
+      className={cn(
+        'ml-5 flex w-[calc(100%-1.25rem)] items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px]',
+        failed ? 'border-red-500/40 bg-red-500/5' : 'border-violet-500/30 bg-violet-500/5',
+        onOpen ? 'cursor-pointer hover:bg-violet-500/10' : 'cursor-default',
+      )}
+      title={onOpen ? t('Open the subagent result') : undefined}
+    >
+      <Bell className={cn('h-3 w-3 shrink-0', failed ? 'text-red-500' : 'text-violet-500')} />
+      <span className="truncate">{note.summary ?? t('Background task finished')}</span>
+      {onOpen && (
+        <span className="ml-auto shrink-0 text-violet-600 dark:text-violet-400">
+          {t('View result')} →
+        </span>
+      )}
+    </button>
+  )
+}
+
+export function MarkdownText({ text }: { text: string }) {
   return (
     <div className="text-xs leading-relaxed break-words [&_table]:my-1.5 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:border [&_th]:border-border [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-left [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[11px]">
       <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>

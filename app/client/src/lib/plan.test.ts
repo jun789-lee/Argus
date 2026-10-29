@@ -35,6 +35,9 @@ function prompt(
     status: endedAt === null ? 'running' : 'done',
     toolCount: 0,
     errorCount: 0,
+    result: null,
+    usage: null,
+    promptIds: ['p'],
   }
 }
 

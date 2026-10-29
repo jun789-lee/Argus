@@ -37,7 +37,8 @@ router.get('/sessions/:sessionId/cache-status', async (c) => {
 })
 
 // Claude's text replies for the prompt view's conversation log.
-//   ?promptId=…  main-chain replies to that prompt (session transcript)
+//   ?promptId=…  main-chain replies to that prompt (session transcript);
+//                comma-separated to include merged task-notification turns
 //   ?agentId=…   a subagent's replies (its own transcript, whose path the
 //                SubagentStop hook reported as agent_transcript_path)
 router.get('/sessions/:sessionId/assistant-messages', async (c) => {

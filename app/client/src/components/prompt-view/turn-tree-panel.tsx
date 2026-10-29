@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 const STATUS_DOT: Record<TurnStatus, string> = {
   running: 'bg-green-500 animate-pulse',
   waiting: 'bg-amber-500 animate-pulse',
+  background: 'bg-violet-500 animate-pulse',
   done: 'bg-muted-foreground/40',
   failed: 'bg-red-500',
   interrupted: 'bg-muted-foreground/20 ring-1 ring-muted-foreground/40',
@@ -20,6 +21,8 @@ export function statusLabel(status: TurnStatus): string {
       return t('Running')
     case 'waiting':
       return t('Waiting for input')
+    case 'background':
+      return t('Subagents running in background')
     case 'done':
       return t('Done')
     case 'failed':
@@ -68,7 +71,11 @@ function PlanBadge({ node }: { node: TurnNode }) {
 
 function hasRunning(nodes: TurnNode[]): boolean {
   return nodes.some(
-    (n) => n.status === 'running' || n.status === 'waiting' || hasRunning(n.children),
+    (n) =>
+      n.status === 'running' ||
+      n.status === 'waiting' ||
+      n.status === 'background' ||
+      hasRunning(n.children),
   )
 }
 

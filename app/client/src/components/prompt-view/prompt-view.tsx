@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { TurnTreePanel, nodeMeta, nodeTitle, statusLabel } from './turn-tree-panel'
 import { ConversationView, useOpenEventInLog } from './conversation-view'
 import { PlanView } from './plan-view'
+import { ResultView } from './result-view'
 
 /** The turn's final reply, as reported by its Stop / SubagentStop hook. */
 function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
@@ -17,9 +18,12 @@ function finalOutput(node: TurnNode, allEvents: TreeEvent[]): string | null {
       ? (e.payload.last_assistant_message as string)
       : null
   if (node.kind === 'prompt') {
+    // While background subagents run, the last Stop is only an interim reply.
+    if (node.status === 'background' || node.endedAt === null) return null
     return pick([...node.events].reverse().find((e) => e.hookName === 'Stop'))
   }
   if (node.kind === 'subagent') {
+    if (node.result) return node.result
     // SubagentStop is logged under the parent agent, naming the child.
     return pick(
       [...allEvents]
@@ -62,7 +66,20 @@ export function PromptView({ sessionId }: { sessionId: string }) {
   const selected = (pickedId && findNode(roots, pickedId)) || latest
   const onSelect = (id: string) => setSelectedTurn(id === latest?.id ? null : { sessionId, id })
 
-  const [tab, setTab] = useState<'plan' | 'conversation' | 'log'>('plan')
+  // Remember the last tab per node kind: prompts open on Plan, subagents on Result.
+  type Tab = 'plan' | 'result' | 'conversation' | 'log'
+  const [tabByKind, setTabByKind] = useState<{ prompt: Tab; subagent: Tab }>({
+    prompt: 'plan',
+    subagent: 'result',
+  })
+  const kind = selected?.kind === 'subagent' ? 'subagent' : 'prompt'
+  const tab = tabByKind[kind]
+  const setTab = (next: Tab) => setTabByKind((prev) => ({ ...prev, [kind]: next }))
+  const tabs: Array<[Tab, string]> = [
+    kind === 'subagent' ? ['result', t('Result')] : ['plan', t('Plan')],
+    ['conversation', t('Conversation')],
+    ['log', t('Log')],
+  ]
   const openEventInLog = useOpenEventInLog(() => setTab('log'))
   const output = useMemo(
     () => (selected ? finalOutput(selected, rawEvents ?? []) : null),
@@ -83,13 +100,7 @@ export function PromptView({ sessionId }: { sessionId: string }) {
         {selected && <NodeHeader node={selected} following={pickedId === null} />}
         {selected && selected.kind !== 'system' && (
           <div className="flex shrink-0 gap-3 border-b border-border px-3 text-xs">
-            {(
-              [
-                ['plan', t('Plan')],
-                ['conversation', t('Conversation')],
-                ['log', t('Log')],
-              ] as const
-            ).map(([key, label]) => (
+            {tabs.map(([key, label]) => (
               <button
                 key={key}
                 type="button"
@@ -106,7 +117,9 @@ export function PromptView({ sessionId }: { sessionId: string }) {
             ))}
           </div>
         )}
-        {selected && selected.kind !== 'system' && tab === 'plan' ? (
+        {selected && selected.kind === 'subagent' && tab === 'result' ? (
+          <ResultView key={selected.id} node={selected} />
+        ) : selected && selected.kind === 'prompt' && tab === 'plan' ? (
           <PlanView
             key={selected.id}
             sessionId={sessionId}
@@ -122,6 +135,7 @@ export function PromptView({ sessionId }: { sessionId: string }) {
             output={output}
             follow={pickedId === null || selected.endedAt === null}
             onOpenEvent={openEventInLog}
+            onSelectNode={onSelect}
           />
         ) : (
           <EventStream key={sessionId} onlyEventIds={eventIds} />

@@ -32,7 +32,13 @@ describe('buildItems', () => {
       'All done!',
     )
     expect(
-      items.map((i) => (i.kind === 'text' ? i.text : i.events.map((e) => e.toolName).join('+'))),
+      items.map((i) =>
+        i.kind === 'text'
+          ? i.text
+          : i.kind === 'activity'
+            ? i.events.map((e) => e.toolName).join('+')
+            : 'notice',
+      ),
     ).toEqual(['Looking first.', 'Read+Edit', 'Now running tests.', 'Bash'])
   })
 

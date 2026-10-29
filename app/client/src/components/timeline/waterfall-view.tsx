@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 const BAR_COLOR: Record<TurnStatus, string> = {
   running: 'bg-green-500/70',
   waiting: 'bg-amber-500/70',
+  background: 'bg-violet-500/30',
   done: '',
   failed: 'bg-red-500/70',
   interrupted: 'bg-muted-foreground/25',

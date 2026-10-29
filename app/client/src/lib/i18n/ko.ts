@@ -400,6 +400,18 @@ export const ko: Record<string, string> = {
     '아직 계획이 없어요. Claude가 작업을 시작하면 단계가 나타나요.',
   'Outside any step': '단계 밖 작업',
   '{done}/{total} steps done': '{total}단계 중 {done}단계 완료',
+
+  // ── Task notifications / subagent results ───────────────
+  'Subagents running in background': '서브에이전트 백그라운드 진행 중',
+  'Open the subagent result': '서브에이전트 결과 열기',
+  'Background task finished': '백그라운드 작업 완료',
+  'View result': '결과 보기',
+  '{n} tokens': '토큰 {n}',
+  'Subagent result': '서브에이전트 결과',
+  'This subagent finished without a recorded result.':
+    '이 서브에이전트는 기록된 결과 없이 끝났어요.',
+  'Still working — the result appears here when the subagent finishes.':
+    '아직 작업 중이에요. 서브에이전트가 끝나면 여기에 결과가 나와요.',
   'Working…': '작업 중…',
   '{n} failed': '{n}개 실패',
   'Open in log': '로그에서 보기',

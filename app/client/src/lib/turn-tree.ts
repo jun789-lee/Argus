@@ -26,7 +26,55 @@ export interface TreeEvent {
 }
 
 export type TurnNodeKind = 'system' | 'prompt' | 'subagent'
-export type TurnStatus = 'running' | 'waiting' | 'done' | 'failed' | 'interrupted'
+/** `background`: the prompt's own turn stopped but subagents it spawned are still running. */
+export type TurnStatus = 'running' | 'waiting' | 'background' | 'done' | 'failed' | 'interrupted'
+
+export interface TaskUsage {
+  tokens: number | null
+  toolUses: number | null
+  durationMs: number | null
+}
+
+export interface TaskNotification {
+  taskId: string | null
+  toolUseId: string | null
+  status: string | null
+  summary: string | null
+  result: string | null
+  usage: TaskUsage | null
+}
+
+function tag(text: string, name: string): string | null {
+  const m = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(text)
+  return m ? m[1].trim() : null
+}
+
+/**
+ * Parse the `<task-notification>` message Claude Code injects as a user
+ * turn when a background task (subagent or shell) finishes. Null when the
+ * prompt isn't one.
+ */
+export function parseTaskNotification(prompt: unknown): TaskNotification | null {
+  if (typeof prompt !== 'string' || !prompt.trimStart().startsWith('<task-notification>')) {
+    return null
+  }
+  const num = (v: string | null) => (v !== null && /^\d+$/.test(v) ? Number(v) : null)
+  const usage = tag(prompt, 'usage')
+  return {
+    taskId: tag(prompt, 'task-id'),
+    toolUseId: tag(prompt, 'tool-use-id'),
+    status: tag(prompt, 'status'),
+    summary: tag(prompt, 'summary'),
+    result: tag(prompt, 'result'),
+    usage: usage
+      ? {
+          tokens: num(tag(usage, 'subagent_tokens') ?? tag(usage, 'total_tokens')),
+          toolUses: num(tag(usage, 'tool_uses')),
+          durationMs: num(tag(usage, 'duration_ms')),
+        }
+      : null,
+  }
+}
 
 export interface TurnNode<E extends TreeEvent = TreeEvent> {
   /** Stable across rebuilds: prompt_id, agent id, or first event id. */
@@ -51,6 +99,12 @@ export interface TurnNode<E extends TreeEvent = TreeEvent> {
   toolCount: number
   /** Failed tool calls in this node's own events. */
   errorCount: number
+  /** Subagents: the report it handed back (task-notification or SubagentStop). */
+  result: string | null
+  /** Subagents: token / tool / time usage from the task-notification. */
+  usage: TaskUsage | null
+  /** Prompts: this prompt's id plus the task-notification turns merged into it. */
+  promptIds: string[]
 }
 
 /** Hooks that describe the session rather than a prompt's work. */
@@ -103,6 +157,9 @@ function newNode<E extends TreeEvent>(
     status: kind === 'system' ? 'done' : 'running',
     toolCount: 0,
     errorCount: 0,
+    result: null,
+    usage: null,
+    promptIds: kind === 'prompt' ? [id] : [],
   }
 }
 
@@ -121,10 +178,43 @@ export function buildTurnTree<E extends TreeEvent>(
   type Spawn = { parentAgentId: string; promptId: string | null; input: Record<string, unknown> }
   const agentCalls = new Map<string, Spawn>()
   const spawnedBy = new Map<string, Spawn>()
+  // A task-notification arrives as a new "prompt" with its own prompt_id.
+  // It continues the prompt that started the background task, so its id is
+  // aliased to that prompt (found via the tool call that launched the task).
+  const aliases = new Map<string, string>() // notification prompt_id → origin prompt_id
+  const canonical = (pid: string | null): string | null => {
+    let id = pid
+    for (let i = 0; id && aliases.has(id) && i < 32; i++) id = aliases.get(id)!
+    return id
+  }
+  const toolCallPrompt = new Map<string, string>() // tool_use_id → prompt_id
+  const notes = new Map<string, TaskNotification>() // task-id → latest notification
+  const noteAt = new Map<string, number>() // task-id → when it arrived
+  let lastRealPrompt: string | null = null
   for (const e of events) {
     const p = e.payload ?? {}
+    const useId = str(p.tool_use_id)
+    if (e.hookName === 'PreToolUse' && useId && str(p.prompt_id)) {
+      toolCallPrompt.set(useId, str(p.prompt_id)!)
+    }
     if (e.hookName === 'UserPromptSubmit' && isMain(e.agentId)) {
-      const id = str(p.prompt_id) ?? `prompt-${e.id}`
+      const note = parseTaskNotification(p.prompt)
+      const pid = str(p.prompt_id)
+      if (note) {
+        if (note.taskId) {
+          notes.set(note.taskId, note)
+          noteAt.set(note.taskId, e.timestamp)
+        }
+        const origin =
+          (note.toolUseId && toolCallPrompt.get(note.toolUseId)) ||
+          (note.taskId && spawnedBy.get(note.taskId)?.promptId) ||
+          lastRealPrompt
+        const target = canonical(origin ?? null)
+        if (pid && target && target !== pid) aliases.set(pid, target)
+        if (target) continue
+      }
+      const id = pid ?? `prompt-${e.id}`
+      lastRealPrompt = id
       if (!prompts.has(id)) {
         const node = newNode('prompt', id, e.agentId, e)
         node.prompt = str(p.prompt)
@@ -134,7 +224,6 @@ export function buildTurnTree<E extends TreeEvent>(
       }
     }
     if (p.tool_name === 'Agent') {
-      const useId = str(p.tool_use_id)
       const input = (p.tool_input ?? {}) as Record<string, unknown>
       const spawn: Spawn = { parentAgentId: e.agentId, promptId: str(p.prompt_id), input }
       if (e.hookName === 'PreToolUse' && useId) agentCalls.set(useId, spawn)
@@ -156,9 +245,12 @@ export function buildTurnTree<E extends TreeEvent>(
     return found && (found.endedAt === null || ts <= found.endedAt) ? found : null
   }
 
+  for (const alias of aliases.keys()) prompts.get(canonical(alias) ?? '')?.promptIds.push(alias)
+
   // ---- Pass 2: assign events ---------------------------------------------
   const roots: TurnNode<E>[] = [...promptOrder]
   const subagents = new Map<string, TurnNode<E>>() // agentId → node
+  const stopReplies = new Map<string, string>() // agentId → SubagentStop last_assistant_message
   let openSystem: TurnNode<E> | null = null
 
   for (const e of events) {
@@ -184,7 +276,7 @@ export function buildTurnTree<E extends TreeEvent>(
       continue
     }
 
-    const pid = str(p.prompt_id)
+    const pid = canonical(str(p.prompt_id))
     const prompt = (pid && prompts.get(pid)) || promptAt(e.timestamp)
     if (!prompt) {
       if (!openSystem) {
@@ -196,13 +288,21 @@ export function buildTurnTree<E extends TreeEvent>(
     }
     openSystem = null
     prompt.events.push(e)
-    if (PROMPT_END_HOOKS.has(e.hookName) && prompt.endedAt === null) {
+    // A merged task-notification wakes the prompt back up until the next Stop.
+    if (e.hookName === 'UserPromptSubmit' && prompt.id !== str(p.prompt_id)) {
+      prompt.endedAt = null
+      prompt.status = 'running'
+    }
+    if (PROMPT_END_HOOKS.has(e.hookName)) {
       prompt.endedAt = e.timestamp
       prompt.status = e.hookName === 'StopFailure' ? 'failed' : 'done'
     }
     // A SubagentStop (logged under the parent) closes the child it names.
     if (e.hookName === 'SubagentStop') {
-      const child = subagents.get(str(p.agent_id) ?? '')
+      const childId = str(p.agent_id) ?? ''
+      const reply = str(p.last_assistant_message)
+      if (reply) stopReplies.set(childId, reply)
+      const child = subagents.get(childId)
       if (child && child.endedAt === null) {
         child.endedAt = e.timestamp
         child.status = 'done'
@@ -213,7 +313,7 @@ export function buildTurnTree<E extends TreeEvent>(
   // ---- Pass 3: attach subagents to parents --------------------------------
   const promptOfAgentEvents = (node: TurnNode<E>): TurnNode<E> | null => {
     for (const e of node.events) {
-      const pid = str(e.payload?.prompt_id)
+      const pid = canonical(str(e.payload?.prompt_id))
       if (pid && prompts.has(pid)) return prompts.get(pid)!
     }
     return promptAt(node.startedAt)
@@ -226,11 +326,22 @@ export function buildTurnTree<E extends TreeEvent>(
       node.agentType = node.agentType ?? str(spawn.input.subagent_type)
     }
     node.title = node.title || (node.agentType ?? '')
+    // The report: the task-notification's <result> (background agents),
+    // else the SubagentStop's last message (foreground agents).
+    const note = notes.get(node.agentId)
+    node.result = note?.result ?? stopReplies.get(node.agentId) ?? null
+    node.usage = note?.usage ?? null
+    if (note && node.endedAt === null) {
+      node.endedAt = noteAt.get(node.agentId) ?? node.lastEventAt
+      node.status = 'done'
+    }
+    if (note?.status && note.status !== 'completed') node.status = 'failed'
     const parentSubagent =
       spawn && !isMain(spawn.parentAgentId) ? subagents.get(spawn.parentAgentId) : undefined
+    const spawnPrompt = canonical(spawn?.promptId ?? null)
     const parent =
       (parentSubagent !== node ? parentSubagent : undefined) ??
-      (spawn?.promptId ? prompts.get(spawn.promptId) : undefined) ??
+      (spawnPrompt ? prompts.get(spawnPrompt) : undefined) ??
       promptOfAgentEvents(node)
     if (parent) parent.children.push(node)
     else roots.push(node)
@@ -275,6 +386,17 @@ export function buildTurnTree<E extends TreeEvent>(
       node.endedAt = node.lastEventAt
     }
   })
+
+  // The prompt's own turn stopped, but subagents it launched in the
+  // background are still working — it isn't really done yet.
+  const hasRunningDescendant = (n: TurnNode<E>): boolean =>
+    n.children.some((c) => c.endedAt === null || hasRunningDescendant(c))
+  for (const node of promptOrder) {
+    if (node.status === 'done' && hasRunningDescendant(node)) {
+      node.status = 'background'
+      node.endedAt = null
+    }
+  }
 
   return roots.sort((a, b) => a.startedAt - b.startedAt || (a.kind === 'system' ? -1 : 1))
 }

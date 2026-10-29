@@ -21,6 +21,8 @@ export function extractAssistantMessages(
   opts: { promptId?: string | null; includeSidechain?: boolean } = {},
 ): AssistantMessage[] {
   const out: AssistantMessage[] = []
+  // Comma-separated: a prompt plus the task-notification turns merged into it.
+  const wanted = opts.promptId ? new Set(opts.promptId.split(',').filter(Boolean)) : null
   let currentPrompt: string | null = null
   let lastRequestId: string | null = null
   for (const line of lines) {
@@ -38,7 +40,7 @@ export function extractAssistantMessages(
     }
     if (entry?.type !== 'assistant') continue
     if (entry.isSidechain && !opts.includeSidechain) continue
-    if (opts.promptId && currentPrompt !== opts.promptId) continue
+    if (wanted && (currentPrompt === null || !wanted.has(currentPrompt))) continue
     const blocks = Array.isArray(entry.message?.content) ? entry.message.content : []
     const text = blocks
       .filter((b: any) => b?.type === 'text' && typeof b.text === 'string' && b.text.trim())
